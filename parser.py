@@ -1,6 +1,7 @@
 from typing import List, Optional, Dict, Any
-import PyPDF2
+# import PyPDF2
 import re
+import fitz
 
 
 class Parser:
@@ -21,26 +22,23 @@ class Parser:
         return None
 
     def add_lines_from_page(self, page: str) -> None:
-        lines_list: List[str] = page.split("\n")
+        lines_list: List[str] = re.split(r':|\n\n|\n\s*\n|•|\.\s*\n', page)
         current_line: str
         for line in lines_list:
             current_line = re.sub(' +', ' ', line.strip())
-            if len(current_line ) != 0:
+            if len(current_line) != 0:
                 self._resume_lines_list.append(current_line)
 
     def extract_text_from_pdf(self) -> None:
-        pdf_reader = PyPDF2.PdfReader(open(self._pdf_path, 'rb'))
-
-        page_content: str
-        for page_num in range(len(pdf_reader.pages)):
-            page = pdf_reader.pages[page_num]
-            page_content = page.extract_text()
+        doc = fitz.open(self._pdf_path)  # open document
+        for page in doc:  # iterate the document pages
+            page_content = page.get_text()
             self._resume_text += page_content
             self.add_lines_from_page(page_content)
             self.add_paragraphs_from_page(page_content)
 
     def add_paragraphs_from_page(self, page: str) -> None:
-        paragraphs_list: List[str] = page.split("\n\n")
+        paragraphs_list: List[str] = re.split('\s{4,}', page)
         current_line: str
         for line in paragraphs_list:
             current_line = re.sub(' +', ' ', line.strip())
@@ -49,7 +47,6 @@ class Parser:
 
     def get_resume_lines_list(self) -> List[str]:
         return self._resume_lines_list
-
 
     def get_resume_paragraphs_list(self) -> List[str]:
         return self._resume_paragraphs_list
