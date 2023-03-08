@@ -7,7 +7,7 @@ class ResumeLine:
         self._endY = endY
 
     def __str__(self):
-        return f'"{self._text}", start: ({self._startX}, {self._startY}), end: ({self._endX}, {self._endY})\n'
+        return f'"{self._text}", start: ({self._startX}, {self._startY}), end: ({self._endX}, {self._endY})'
 
     @property
     def text(self) -> str:

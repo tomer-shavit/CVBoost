@@ -12,6 +12,8 @@ class ResumeParser:
         self._resume_lines_list: List[ResumeLine] = []
         self._current_line_index = 0
         self.extract_text_from_pdf()
+        # for line in self._resume_lines_list:
+        #     print(line)
 
 
     def get_current_line(self) -> Optional[ResumeLine]:
