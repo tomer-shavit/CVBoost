@@ -1,10 +1,14 @@
+import os
+
 from resume_parser import ResumeParser
 from analyzer import Analyzer
-import sys, fitz
+import sys
+from booster import Booster
 
-def parse_resume(pdf_path: str) -> None:
+
+def parse_resume(pdf_path: str) -> Analyzer:
     parser: ResumeParser = ResumeParser(pdf_path)
-    analyzer: Analyzer = Analyzer()
+    analyzer: Analyzer = Analyzer(parser.resume_text)
     text_type: str = ""
 
     for line in parser.get_resume_lines_list():
@@ -21,20 +25,20 @@ def parse_resume(pdf_path: str) -> None:
         elif analyzer.is_accomplishments_section(line.text):
             text_type = analyzer.ACCOMPLISHMENTS
 
-        analyzer.add_to_analyzer(line.text, text_type)
+        analyzer.add_to_analyzer(line, text_type)
 
-    for key, value in analyzer.get_analyzed_data().items():
-        print(key)
-        for val in value:
-            print("- " + val)
-
+    # for key, value in analyzer.get_analyzed_data().items():
+    #     print(key)
+    #     for val in value:
+    #         print("- " + val.text)
+    return analyzer
 
 
 if __name__ == "__main__":
-    parse_resume(sys.argv[1])
-
-
-
-
-
-
+    analyzer = parse_resume(sys.argv[1])
+    booster = Booster()
+    # print(os.getenv("GPT_API_KEY1"))
+    resume_line_len = lambda x: len(x.text)
+    longest_edu = max(analyzer.education, key=resume_line_len)
+    print(longest_edu)
+    print(booster.rate_resume(analyzer.original_text))

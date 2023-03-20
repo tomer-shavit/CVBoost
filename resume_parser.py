@@ -37,3 +37,7 @@ class ResumeParser:
 
     def get_resume_lines_list(self) -> List[ResumeLine]:
         return self._resume_lines_list
+
+    @property
+    def resume_text(self) ->str:
+        return self._resume_text

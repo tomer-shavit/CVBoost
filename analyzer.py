@@ -1,5 +1,6 @@
 from typing import Optional, List, Dict, Any
 import re
+from resume_line import ResumeLine
 from re import Match
 
 
@@ -12,16 +13,17 @@ class Analyzer:
     ACCOMPLISHMENTS = "accomplishments"
     MILITARY_SERVICE = "military service"
 
-    def __init__(self):
-        self._skills: List[str] = []
-        self._experience: List[str] = []
-        self._projects: List[str] = []
-        self._education: List[str] = []
-        self._hobbies: List[str] = []
-        self._accomplishments: List[str] = []
-        self._military_service: List[str] = []
+    def __init__(self, original_text: str):
+        self._original_text = original_text
+        self._skills: List[ResumeLine] = []
+        self._experience: List[ResumeLine] = []
+        self._projects: List[ResumeLine] = []
+        self._education: List[ResumeLine] = []
+        self._hobbies: List[ResumeLine] = []
+        self._accomplishments: List[ResumeLine] = []
+        self._military_service: List[ResumeLine] = []
 
-    def get_analyzed_data(self) -> Dict[str, List[str]]:
+    def get_analyzed_data(self) -> Dict[str, List[ResumeLine]]:
         return {self.SKILLS: self._skills, self.EXPERIENCE: self._experience, self.PROJECTS: self._projects,
                 self.EDUCATION: self._education, self.HOBBIES: self._hobbies,
                 self.ACCOMPLISHMENTS: self._accomplishments, self.MILITARY_SERVICE: self._military_service}
@@ -138,7 +140,7 @@ class Analyzer:
                 return True
         return False
 
-    def add_to_analyzer(self, line: str, line_type: str) -> None:
+    def add_to_analyzer(self, line: ResumeLine, line_type: str) -> None:
         if line_type == self.SKILLS:
             self._skills.append(line)
         elif line_type == self.EXPERIENCE:
@@ -155,13 +157,19 @@ class Analyzer:
             self._military_service.append(line)
 
     @property
-    def skills(self) -> List[str]:
+    def skills(self) -> List[ResumeLine]:
         return self._skills
 
     @property
-    def experience(self) -> List[str]:
+    def experience(self) -> List[ResumeLine]:
         return self._experience
 
     @property
-    def projects(self) -> List[str]:
+    def projects(self) -> List[ResumeLine]:
         return self._projects
+    @property
+    def education(self) -> List[ResumeLine]:
+        return self._education
+    @property
+    def original_text(self) -> str:
+        return self._original_text
