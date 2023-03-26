@@ -8,6 +8,7 @@ class GptApiCaller:
 
     def __init__(self):
         self._model = openai
+        self._tokens_used: int = 0
         self._model.api_key = os.getenv("GPT_API_KEY1")
 
     def call_api(self, messages: List[Dict[str, str]], temperature: float, max_tokens: int) -> GptApiResponse:
@@ -27,3 +28,11 @@ class GptApiCaller:
     @staticmethod
     def create_message(role: str, content: str) -> Dict[str, str]:
         return {"role": role, "content": content}
+
+    def add_tokens(self, amount: int) -> int:
+        self._tokens_used += amount
+        return self._tokens_used
+
+    @property
+    def tokens_used(self) -> int:
+        return self._tokens_used
