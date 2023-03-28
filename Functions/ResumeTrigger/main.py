@@ -1,9 +1,6 @@
-import os
-
-from resume_parser import ResumeParser
-from analyzer import Analyzer
-import sys
-from booster import Booster
+from .resume_parser import ResumeParser
+from .analyzer import Analyzer
+from .booster import Booster
 
 
 def parse_resume(pdf_path: str) -> Analyzer:
@@ -27,20 +24,11 @@ def parse_resume(pdf_path: str) -> Analyzer:
 
         analyzer.add_to_analyzer(line, text_type)
 
-    # for key, value in analyzer.get_analyzed_data().items():
-    #     print(key)
-    #     for val in value:
-    #         print("- " + val.text)
     return analyzer
 
 
-if __name__ == "__main__":
-    analyzer = parse_resume(sys.argv[1])
+def boost_resume_to_json(path: str) -> str:
+    analyzer = parse_resume(path)
     booster = Booster()
-    # print(os.getenv("GPT_API_KEY1"))
-    resume_line_len = lambda x: len(x.text)
-    skill = max(analyzer.skills, key=resume_line_len)
-    booster.rephrase_line(skill)
-    exp = max(analyzer.experience, key=resume_line_len)
-    booster.rephrase_line(exp)
-    print(booster.feedback_resume(analyzer.original_text))
+    booster.feedback_resume(analyzer.original_text)
+    return booster.make_json()

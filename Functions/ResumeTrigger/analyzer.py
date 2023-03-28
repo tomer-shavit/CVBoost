@@ -1,6 +1,6 @@
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict
 import re
-from resume_line import ResumeLine
+from .resume_line import ResumeLine
 from re import Match
 
 
@@ -167,9 +167,11 @@ class Analyzer:
     @property
     def projects(self) -> List[ResumeLine]:
         return self._projects
+
     @property
     def education(self) -> List[ResumeLine]:
         return self._education
+
     @property
     def original_text(self) -> str:
         return self._original_text

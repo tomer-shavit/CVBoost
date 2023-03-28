@@ -1,6 +1,7 @@
-import os, openai
+import os
+import openai
 from typing import Dict, List
-from gpt_api_response import GptApiResponse
+from .gpt_api_response import GptApiResponse
 
 
 class GptApiCaller:

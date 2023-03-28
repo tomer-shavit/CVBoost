@@ -132,3 +132,5 @@ resumes/
 
 .idea/
 .python_packages
+
+*.http

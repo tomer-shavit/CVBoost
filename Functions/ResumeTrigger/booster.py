@@ -1,13 +1,14 @@
-from typing import List, Dict, Self
+from typing import List, Self
 import re
-from resume_line import ResumeLine
-from gpt_api_caller import GptApiCaller
+from .resume_line import ResumeLine
+from .gpt_api_caller import GptApiCaller
 import tiktoken
-from gpt_api_response import GptApiResponse
+import json
+from .gpt_api_response import GptApiResponse
 
 
 class Booster:
-    TEMP = 0.6
+    TEMP = 0.5
     BULLET_POINT = '~'
     SYSTEM_PROMPT = "You're an expert career advisor. You've been helping improve people's resumes for 20 years."
     FEEDBACK_PROMPT = f"I am the applicant, talk to me directly. Rate my resume out of 100," \
@@ -17,7 +18,7 @@ class Booster:
     DEFAULT_SCORE = 75
 
     def __init__(self):
-        self._edited_lines: List[Dict[str, ResumeLine]] = []
+        self._edited_lines: List[ResumeLine] = []
         self._score: int = -1
         self._feedback: str = ""
         self._bullet_points: List[str] = []
@@ -30,7 +31,8 @@ class Booster:
                f"{self._feedback}\nBullet Points:{self._bullet_points}\nTokens used: {self._gpt_caller.tokens_used}"
 
     def rephrase_line(self, line: ResumeLine) -> ResumeLine:
-        messages = [self._gpt_caller.create_message("system", self.SYSTEM_PROMPT)]
+        messages = [self._gpt_caller.create_message(
+            "system", self.SYSTEM_PROMPT)]
         prompt = f"Rephrase this sentence in an impressive, short and sweet way: {line.text}"
         messages.append((self._gpt_caller.create_message("user", prompt)))
         encoding = tiktoken.encoding_for_model(self._gpt_caller.MODEL_TYPE)
@@ -39,11 +41,12 @@ class Booster:
         self.add_tokens(api_res)
         edited_line = ResumeLine(api_res.choices[0]["message"]["content"], line.startX, line.endX, line.startY,
                                  line.endY)
-        self._edited_lines.append({"original": line, "edited": edited_line})
+        self._edited_lines.append(edited_line)
         return edited_line
 
-    def feedback_resume(self, resume_text: str) -> Self:
-        messages = [self._gpt_caller.create_message("system", self.SYSTEM_PROMPT)]
+    def feedback_resume(self, resume_text: str) -> any:
+        messages = [self._gpt_caller.create_message(
+            "system", self.SYSTEM_PROMPT)]
         prompt = f"{self.FEEDBACK_PROMPT} {resume_text}"
         messages.append((self._gpt_caller.create_message("user", prompt)))
         encoding = tiktoken.encoding_for_model(self._gpt_caller.MODEL_TYPE)
@@ -51,7 +54,7 @@ class Booster:
         api_res = self._gpt_caller.call_api(messages, self.TEMP, max_tokens)
         return self.load_res(api_res)
 
-    def load_res(self, api_res: GptApiResponse) -> Self:
+    def load_res(self, api_res: GptApiResponse) -> any:
         self.add_tokens(api_res)
         res_text = api_res.choices[0].message.content
         res_text = self.extract_score(res_text)
@@ -59,7 +62,7 @@ class Booster:
         self.get_bullets(res_text)
         return self
 
-    def add_tokens(self, api_res:GptApiResponse) -> Self:
+    def add_tokens(self, api_res: GptApiResponse) -> any:
         self._gpt_caller.add_tokens(api_res.usage.total_tokens)
         return self
 
@@ -83,3 +86,10 @@ class Booster:
         for bullet in text_split:
             if len(bullet):
                 self._bullet_points.append(bullet.strip())
+
+    def make_json(self) -> str:
+        edited_lines = [{"text": line.text, "start": (line.startX, line.startY), "end": (
+            line.endX, line.endY)} for line in self._edited_lines]
+        booster_dict = {"score": self._score, "edited_lines": edited_lines,
+                        "feedback": self._feedback, "bullet_points": self._bullet_points}
+        return json.dumps(booster_dict)
