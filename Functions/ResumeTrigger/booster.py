@@ -1,4 +1,4 @@
-from typing import List, Self
+from typing import List
 import re
 from .resume_line import ResumeLine
 from .gpt_api_caller import GptApiCaller

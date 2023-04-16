@@ -1,3 +1,5 @@
+import sys
+
 from .resume_parser import ResumeParser
 from .analyzer import Analyzer
 from .booster import Booster
@@ -7,6 +9,7 @@ def parse_resume(pdf_path: str) -> Analyzer:
     parser: ResumeParser = ResumeParser(pdf_path)
     analyzer: Analyzer = Analyzer(parser.resume_text)
     text_type: str = ""
+    a = parser.get_resume_lines_list()
 
     for line in parser.get_resume_lines_list():
         if analyzer.is_experience_section(line.text):
@@ -30,5 +33,5 @@ def parse_resume(pdf_path: str) -> Analyzer:
 def boost_resume_to_json(path: str) -> str:
     analyzer = parse_resume(path)
     booster = Booster()
-    booster.feedback_resume(analyzer.original_text)
+    # booster.feedback_resume(analyzer.original_text)
     return booster.make_json()
