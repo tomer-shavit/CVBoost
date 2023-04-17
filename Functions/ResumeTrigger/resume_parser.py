@@ -11,8 +11,6 @@ class ResumeParser:
         self._resume_lines_list: List[ResumeLine] = []
         self._current_line_index = 0
         self.extract_text_from_pdf()
-        # for line in self._resume_lines_list:
-        #     print(line)
 
     def get_current_line(self) -> Optional[ResumeLine]:
         if self._current_line_index < len(self._resume_lines_list):
@@ -21,6 +19,9 @@ class ResumeParser:
             return current_line
 
         return None
+
+    def get_sorted_lines(self):
+        return sorted(self._resume_lines_list, key=lambda line: len(line.text), reverse=True)
 
     def extract_text_from_pdf(self) -> None:
         doc = fitz.open(self._pdf_path)  # open document
@@ -40,3 +41,7 @@ class ResumeParser:
     @property
     def resume_text(self) -> str:
         return self._resume_text
+
+    @property
+    def lines(self) -> List[ResumeLine]:
+        return self._resume_lines_list

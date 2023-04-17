@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Dict
 import re
 from .resume_line import ResumeLine
 from .gpt_api_caller import GptApiCaller
@@ -8,41 +8,59 @@ from .gpt_api_response import GptApiResponse
 
 
 class Booster:
-    TEMP = 0.5
+    TEMP = 0.4
     BULLET_POINT = '~'
     SYSTEM_PROMPT = "You're an expert career advisor. You've been helping improve people's resumes for 20 years."
-    FEEDBACK_PROMPT = f"I am the applicant, talk to me directly. Rate my resume out of 100," \
-                      f" respond only with the number. Then write a mostly positive yet critical feedback paragraph" \
-                      f" on it. Then, without saying anything else, " \
-                      f"give 3-4 bullet points that start with {BULLET_POINT} on how to improve it:"
+    REPHRASE_PROMPT = f"Rephrase the following resume sentences in a concise and " \
+                      f"impressive manner to improve the overall quality of the resume:\n"
+    FEEDBACK_PROMPT = "Please analyze my resume and rate each of the following criteria out of 100:\n" \
+                      "Clarity and readability\nRelevance\nAchievements\nKeywords\n" \
+                      "Please provide specific examples with quotes from the text to support your ratings.\n" \
+                      "After analyzing my resume, please provide a feedback that includes specific examples " \
+                      "from the text to support your ratings. keep the feedback critical and respectful." \
+                      "I am the applicant, talk to me directly."
+
     DEFAULT_SCORE = 75
+    CATEGORIES_TITLES = ['readability:', 'Relevance:', 'Achievements:', 'Keywords:']
 
     def __init__(self):
         self._edited_lines: List[ResumeLine] = []
-        self._score: int = -1
+        self._score: Dict[str, int] = {}
+        self._clarity = ""
+        self._relevance = ""
+        self._achievements = ""
+        self._keywords = ""
         self._feedback: str = ""
-        self._bullet_points: List[str] = []
         self._gpt_caller: GptApiCaller = GptApiCaller()
 
     def __str__(self):
         edited_lines_str = '\n'.join(
             [f'original: {line["original"]}, edited: {line["edited"]}' for line in self._edited_lines])
+        # TODO change score print
         return f"Edited lines: {edited_lines_str}\nScore: {self._score}\nFeedback: " \
-               f"{self._feedback}\nBullet Points:{self._bullet_points}\nTokens used: {self._gpt_caller.tokens_used}"
+               f"{self._feedback}\nTokens used: {self._gpt_caller.tokens_used}"
 
-    def rephrase_line(self, line: ResumeLine) -> ResumeLine:
+    def rephrase_lines(self, lines: List[ResumeLine]) -> List[ResumeLine]:
         messages = [self._gpt_caller.create_message(
             "system", self.SYSTEM_PROMPT)]
-        prompt = f"Rephrase this sentence in an impressive, short and sweet way: {line.text}"
+        all_lines = '\n'.join([f"- {line.text}" for line in lines])
+        prompt = self.REPHRASE_PROMPT + f"{all_lines}"
         messages.append((self._gpt_caller.create_message("user", prompt)))
         encoding = tiktoken.encoding_for_model(self._gpt_caller.MODEL_TYPE)
-        max_tokens = len(encoding.encode(line.text))
+        max_tokens = len(encoding.encode(all_lines)) * 2
         api_res = self._gpt_caller.call_api(messages, self.TEMP, max_tokens)
         self.add_tokens(api_res)
-        edited_line = ResumeLine(api_res.choices[0]["message"]["content"], line.startX, line.endX, line.startY,
-                                 line.endY)
-        self._edited_lines.append(edited_line)
-        return edited_line
+        content = api_res.choices[0]["message"]["content"]
+        sentences_list = [s.strip() for s in content.split('- ')[1:]]
+        self.add_lines_to_edited_lines(lines, sentences_list)
+
+        return self._edited_lines
+
+    def add_lines_to_edited_lines(self, resume_lines: List[ResumeLine] ,lines: List[str]) -> None:
+        for line, resume_line in zip(lines, resume_lines):
+            edited_line = ResumeLine(line, resume_line.startX, resume_line.endX, resume_line.startY,
+                                     resume_line.endY)
+            self._edited_lines.append(edited_line)
 
     def feedback_resume(self, resume_text: str) -> any:
         messages = [self._gpt_caller.create_message(
@@ -50,46 +68,57 @@ class Booster:
         prompt = f"{self.FEEDBACK_PROMPT} {resume_text}"
         messages.append((self._gpt_caller.create_message("user", prompt)))
         encoding = tiktoken.encoding_for_model(self._gpt_caller.MODEL_TYPE)
-        max_tokens = len(encoding.encode(resume_text))
+        max_tokens = len(encoding.encode(resume_text)) * 2
         api_res = self._gpt_caller.call_api(messages, self.TEMP, max_tokens)
         return self.load_res(api_res)
 
     def load_res(self, api_res: GptApiResponse) -> any:
         self.add_tokens(api_res)
         res_text = api_res.choices[0].message.content
-        res_text = self.extract_score(res_text)
-        res_text = self.extract_feedback(res_text)
-        self.get_bullets(res_text)
+        self.extract_score(res_text)
+        self.extract_feedback(res_text)
         return self
 
     def add_tokens(self, api_res: GptApiResponse) -> any:
         self._gpt_caller.add_tokens(api_res.usage.total_tokens)
         return self
 
-    def extract_score(self, res_text: str) -> str:
-        grade_str = ""
-        if res_text[0].isdigit():
-            grade_str = re.search(r'\d+', res_text).group()
-            self._score = int(grade_str)
-        else:
-            self._score = self.DEFAULT_SCORE
+    def _check_if_title(self, words: List[str]):
+        for category in self.CATEGORIES_TITLES:
+            if category in words:
+                return True
 
-        return res_text.lstrip(grade_str)
+        return False
 
-    def extract_feedback(self, res_text: str) -> str:
-        text_split = res_text.split(self.BULLET_POINT)
-        self._feedback = text_split[0].strip('\n')
-        return "".join(text_split[1:])
+    def extract_score(self, text: str) -> None:
+        result = {}
+        for line in text.split('\n'):
+            words = line.split(" ")
+            if self._check_if_title(words):
+                for i, word in enumerate(words):
+                    if "/" in word:
+                        result[words[0].lower()] = int(word.split('/')[0])
+                        break
 
-    def get_bullets(self, res_text: str) -> None:
-        text_split = res_text.split('\n')
-        for bullet in text_split:
-            if len(bullet):
-                self._bullet_points.append(bullet.strip())
+        self._score = result
+
+    def extract_feedback(self, text: str) -> None:
+        paragraphs = text.split('\n\n')
+        self._clarity = paragraphs[0].split('\n')[1]
+        self._relevance = paragraphs[1].split('\n')[1]
+        self._achievements = paragraphs[2].split('\n')[1]
+        self._keywords = paragraphs[3].split('\n')[1]
+        self._feedback = paragraphs[4]
 
     def make_json(self) -> str:
         edited_lines = [{"text": line.text, "start": (line.startX, line.startY), "end": (
             line.endX, line.endY)} for line in self._edited_lines]
-        booster_dict = {"score": self._score, "edited_lines": edited_lines,
-                        "feedback": self._feedback, "bullet_points": self._bullet_points}
+        booster_dict = {"edited_lines": edited_lines,
+                        "score": self._score,
+                        "clarity": self._clarity,
+                        "relevance": self._relevance,
+                        "achievements": self._achievements,
+                        "keywords": self._keywords,
+                        "feedback": self._feedback,
+                        }
         return json.dumps(booster_dict)

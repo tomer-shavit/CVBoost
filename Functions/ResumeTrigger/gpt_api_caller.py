@@ -3,7 +3,6 @@ import openai
 from typing import Dict, List
 from .gpt_api_response import GptApiResponse
 
-
 class GptApiCaller:
     MODEL_TYPE = "gpt-3.5-turbo"
 
