@@ -20,11 +20,8 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         logging.error(str(e))
         return func.HttpResponse("Please upload a pdf resume file.", status_code=400)
 
-    with tempfile.NamedTemporaryFile(delete=False) as tmp:
-        tmp.write(file_content)
-        tmp.seek(0)
-        boost_passed, request_status, boosted_response = boost_resume_to_json(
-            tmp.name)
+    boost_passed, request_status, boosted_response = boost_resume_to_json(
+        file_content)
 
     # Set CORS headers
     headers = {

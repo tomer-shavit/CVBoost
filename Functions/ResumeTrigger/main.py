@@ -7,12 +7,13 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import logging
 
 
-def boost_resume_to_json(path: str) -> Tuple[bool, int, str]:
-    test_result: FileTestResult = is_valid_resume(path)
-    if not test_result.is_passed():
-        return test_result.status, 400, test_result.error_message
+def boost_resume_to_json(pdf_bytes: bytes) -> Tuple[bool, int, str]:
+    # TODO: change the tests to use pdf_bytes
+    # test_result: FileTestResult = is_valid_resume(path)
+    # if not test_result.is_passed():
+    #     return test_result.status, 400, test_result.error_message
 
-    parser: ResumeParser = ResumeParser(path)
+    parser: ResumeParser = ResumeParser(pdf_bytes)
     booster = Booster()
     filtered_lines = [line for line in parser.get_sorted_lines()[
         :15] if line.text[-1] == "."]

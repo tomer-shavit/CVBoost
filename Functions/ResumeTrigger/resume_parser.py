@@ -5,8 +5,8 @@ import fitz
 
 
 class ResumeParser:
-    def __init__(self, pdf_path: str):
-        self._pdf_path: str = pdf_path
+    def __init__(self, pdf_bytes: str):
+        self._pdf_bytes: bytes = pdf_bytes
         self._resume_text: str = ""
         self._resume_lines_list: List[ResumeLine] = []
         self._current_line_index = 0
@@ -24,7 +24,8 @@ class ResumeParser:
         return sorted(self._resume_lines_list, key=lambda line: len(line.text), reverse=True)
 
     def extract_text_from_pdf(self) -> None:
-        doc = fitz.open(self._pdf_path)  # open document
+        doc = fitz.open(stream=self._pdf_bytes,
+                        filetype="pdf")  # open document
         for page in doc:  # iterate the document pages
             page_content_blocks = page.get_text("blocks", sort=True)
             self._resume_text += page.get_text()
