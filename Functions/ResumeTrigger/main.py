@@ -1,20 +1,34 @@
+from typing import Tuple
 from .resume_parser import ResumeParser
 from .booster import Booster
+from .test_result import FileTestResult
+from .file_check import is_valid_resume
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import logging
 
 
-def boost_resume_to_json(path: str) -> str:
+def boost_resume_to_json(path: str) -> Tuple[bool, int, str]:
+    test_result: FileTestResult = is_valid_resume(path)
+    if not test_result.is_passed():
+        return test_result.status, 400, test_result.error_message
+
     parser: ResumeParser = ResumeParser(path)
     booster = Booster()
-    filtered_lines = [line for line in parser.get_sorted_lines()[:15] if line.text[-1] == "."]
+    filtered_lines = [line for line in parser.get_sorted_lines()[
+        :15] if line.text[-1] == "."]
     lines_to_rephrase = filtered_lines[:5]
 
-    with ThreadPoolExecutor() as executor:
-        futures = [executor.submit(booster.feedback_resume, parser.resume_text),
-                   executor.submit(booster.rephrase_lines, lines_to_rephrase)]
+    try:
+        with ThreadPoolExecutor() as executor:
+            futures = [executor.submit(booster.feedback_resume, parser.resume_text),
+                       executor.submit(booster.rephrase_lines, lines_to_rephrase)]
 
-        for future in as_completed(futures):
-            # Wait for all the API calls to complete
-            pass
+            for future in as_completed(futures):
+                # Wait for all the API calls to complete
+                if future.exception():
+                    raise future.exception()
+    except Exception as e:
+        logging.info(f"An error occurred while making the API call: {e}")
+        return False, 500, "Oops! something went wrong on our side, please check again later."
 
-    return booster.make_json()
+    return True, 200, booster.make_json()

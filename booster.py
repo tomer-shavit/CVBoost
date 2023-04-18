@@ -36,7 +36,6 @@ class Booster:
     def __str__(self):
         edited_lines_str = '\n'.join(
             [f'original: {line["original"]}, edited: {line["edited"]}' for line in self._edited_lines])
-        # TODO change score print
         return f"Edited lines: {edited_lines_str}\nScore: {self._score}\nFeedback: " \
                f"{self._feedback}\nTokens used: {self._gpt_caller.tokens_used}"
 
