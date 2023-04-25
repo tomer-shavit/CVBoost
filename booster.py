@@ -21,10 +21,11 @@ class Booster:
                       "I am the applicant, talk to me directly."
 
     DEFAULT_SCORE = 75
-    CATEGORIES_TITLES = ['readability:', 'Relevance:', 'Achievements:', 'Keywords:']
+    CATEGORIES_TITLES = ['readability:',
+                         'Relevance:', 'Achievements:', 'Keywords:']
 
     def __init__(self):
-        self._edited_lines: List[ResumeLine] = []
+        self._edited_lines: List[Dict[str, str]] = []
         self._score: Dict[str, int] = {}
         self._clarity = ""
         self._relevance = ""
@@ -33,13 +34,13 @@ class Booster:
         self._feedback: str = ""
         self._gpt_caller: GptApiCaller = GptApiCaller()
 
-    def __str__(self):
-        edited_lines_str = '\n'.join(
-            [f'original: {line["original"]}, edited: {line["edited"]}' for line in self._edited_lines])
-        return f"Edited lines: {edited_lines_str}\nScore: {self._score}\nFeedback: " \
-               f"{self._feedback}\nTokens used: {self._gpt_caller.tokens_used}"
+    # def __str__(self):
+    #     edited_lines_str = '\n'.join(
+    #         [f'original: {line["original"]}, edited: {line["edited"]}' for line in self._edited_lines])
+    #     return f"Edited lines: {edited_lines_str}\nScore: {self._score}\nFeedback: " \
+    #            f"{self._feedback}\nTokens used: {self._gpt_caller.tokens_used}"
 
-    def rephrase_lines(self, lines: List[ResumeLine]) -> List[ResumeLine]:
+    def rephrase_lines(self, lines: List[ResumeLine]) -> List[Dict[str, str]]:
         messages = [self._gpt_caller.create_message(
             "system", self.SYSTEM_PROMPT)]
         all_lines = '\n'.join([f"- {line.text}" for line in lines])
@@ -55,10 +56,9 @@ class Booster:
 
         return self._edited_lines
 
-    def add_lines_to_edited_lines(self, resume_lines: List[ResumeLine] ,lines: List[str]) -> None:
+    def add_lines_to_edited_lines(self, resume_lines: List[ResumeLine], lines: List[str]) -> None:
         for line, resume_line in zip(lines, resume_lines):
-            edited_line = ResumeLine(line, resume_line.startX, resume_line.endX, resume_line.startY,
-                                     resume_line.endY)
+            edited_line = {"old_line": resume_line.text, "new_line": line}
             self._edited_lines.append(edited_line)
 
     def feedback_resume(self, resume_text: str) -> any:
@@ -110,8 +110,8 @@ class Booster:
         self._feedback = paragraphs[4]
 
     def make_json(self) -> str:
-        edited_lines = [{"text": line.text, "start": (line.startX, line.startY), "end": (
-            line.endX, line.endY)} for line in self._edited_lines]
+        edited_lines = [{{"old_line": line["old_line"], "new_line": line["new_line"]}}
+                        for line in self._edited_lines]
         booster_dict = {"edited_lines": edited_lines,
                         "score": self._score,
                         "clarity": self._clarity,

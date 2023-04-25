@@ -31,10 +31,13 @@ class ResumeParser:
             self._resume_text += page.get_text()
             for block in page_content_blocks:
                 # block indexes according to the docs
-                block_text = re.sub("\n|\n\s*| \s*", " ", block[4]).strip()
+                block_text = re.sub("\n|\n\s*| \s*", " ",
+                                    block[4]).strip().split(".")
+
                 if len(block_text) != 0:
-                    self._resume_lines_list.append(ResumeLine(
-                        block_text, block[0], block[2], block[1], block[3]))
+                    for line in block_text:
+                        self._resume_lines_list.append(ResumeLine(
+                            line, block[0], block[2], block[1], block[3]))
 
     def get_resume_lines_list(self) -> List[ResumeLine]:
         return self._resume_lines_list

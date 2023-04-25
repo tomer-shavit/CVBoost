@@ -16,8 +16,8 @@ def boost_resume_to_json(pdf_bytes: bytes) -> Tuple[bool, int, str]:
     parser: ResumeParser = ResumeParser(pdf_bytes)
     booster = Booster()
     filtered_lines = [line for line in parser.get_sorted_lines()[
-        :15] if line.text[-1] == "."]
-    lines_to_rephrase = filtered_lines[:5]
+        :15]]
+    lines_to_rephrase = filtered_lines[:4]
 
     try:
         with ThreadPoolExecutor() as executor:
