@@ -6,7 +6,6 @@ from .file_check import is_pdf
 
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
-    logging.basicConfig()
     logging.info('Python HTTP trigger function processed a request.')
 
     # Get the resume file from the request
