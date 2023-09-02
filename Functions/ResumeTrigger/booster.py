@@ -51,9 +51,9 @@ class Booster:
         encoding = tiktoken.encoding_for_model(self._gpt_caller.MODEL_TYPE)
         max_tokens = len(encoding.encode(all_lines)) * 2
         api_res = self._gpt_caller.call_api(messages, self.TEMP, max_tokens)
+        logging.info(api_res)
         self.add_tokens(api_res)
         content = api_res.choices[0]["message"]["content"]
-        logging.info(f"GPT response text: {content}")
         sentences_list = [s.strip() for s in content.split('- ')[1:]]
         self.add_lines_to_edited_lines(lines, sentences_list)
 
@@ -72,7 +72,7 @@ class Booster:
         encoding = tiktoken.encoding_for_model(self._gpt_caller.MODEL_TYPE)
         max_tokens = len(encoding.encode(resume_text)) * 2
         api_res = self._gpt_caller.call_api(messages, self.TEMP, max_tokens)
-        logging.info(f"GPT response text: {api_res}")
+        logging.info(api_res)
         return self.load_res(api_res)
 
     def load_res(self, api_res: GptApiResponse) -> any:
