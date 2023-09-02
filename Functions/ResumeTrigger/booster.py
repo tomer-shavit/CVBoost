@@ -1,6 +1,7 @@
 from typing import List, Dict
-import logging
 import re
+
+import azure.functions as func
 from .resume_line import ResumeLine
 from .gpt_api_caller import GptApiCaller
 import tiktoken
@@ -9,7 +10,7 @@ from .gpt_api_response import GptApiResponse
 
 
 class Booster:
-    TEMP = 0.4
+    TEMP = 0.3
     BULLET_POINT = '~'
     SYSTEM_PROMPT = "You're an expert career advisor. You've been helping improve people's resumes for 20 years."
     REPHRASE_PROMPT = f"Rephrase the following resume sentences in a concise and " \
@@ -51,7 +52,7 @@ class Booster:
         encoding = tiktoken.encoding_for_model(self._gpt_caller.MODEL_TYPE)
         max_tokens = len(encoding.encode(all_lines)) * 2
         api_res = self._gpt_caller.call_api(messages, self.TEMP, max_tokens)
-        logging.info(api_res)
+        func.logger.info(api_res)
         self.add_tokens(api_res)
         content = api_res.choices[0]["message"]["content"]
         sentences_list = [s.strip() for s in content.split('- ')[1:]]
@@ -72,7 +73,7 @@ class Booster:
         encoding = tiktoken.encoding_for_model(self._gpt_caller.MODEL_TYPE)
         max_tokens = len(encoding.encode(resume_text)) * 2
         api_res = self._gpt_caller.call_api(messages, self.TEMP, max_tokens)
-        logging.info(api_res)
+        func.logger.info(api_res)
         return self.load_res(api_res)
 
     def load_res(self, api_res: GptApiResponse) -> any:
