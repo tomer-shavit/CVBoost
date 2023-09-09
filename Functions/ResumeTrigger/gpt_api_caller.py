@@ -22,7 +22,6 @@ class GptApiCaller:
                 temperature=temperature,
                 max_tokens=max_tokens,
                 functions=functions,
-                # presence_penalty=self.PRESENCE_PENALTY,
             )
             return GptApiResponse(response['id'], response["usage"], response["choices"])
 
