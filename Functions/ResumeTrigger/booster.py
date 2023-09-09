@@ -12,9 +12,6 @@ class Booster:
     SYSTEM_PROMPT = "You're an expert career advisor. You've been helping improve people's resumes for 20 years."
     REPHRASE_PROMPT = f"Rephrase the following resume sentences in a concise, action oriented and " \
                       f"impressive manner to improve the overall quality of the resume:\n"
-    # REPHRASE_PROMPT = f"Rewrite the following resume sentences in a concise, action-oriented and impressive manner to improve the overall" \
-    #     f"quality of the resume. Use strong verbs, quantifiable results and specific skills to showcase my achievements and abilities." \
-    #     f"Here are the lines to improve: \n"
 
     FEEDBACK_PROMPT = "Please analyze my resume and rate each of the following criteria out of 100:\n" \
                       "Clarity and readability\nRelevance\nAchievements\nKeywords\n" \
@@ -50,46 +47,44 @@ class Booster:
         "properties": {
             "summary": {
                 "type": "string",
-                "description": "general feedback about the resume"
+                "description": "general feedback about the resume according to the prompt"
             },
             "clarity": {
                 "type": "object",
                 "properties": {
-                    "feedback": {"type": "string", "description": "feedback regarding clarity"},
+                    "feedback": {"type": "string", "description": "feedback regarding clarity according to the prompt"},
                     "score": {"type": "integer", "description": "score out of 100"}
                 }
             },
             "relevance": {
                 "type": "object",
                 "properties": {
-                    "feedback": {"type": "string", "description": "feedback regarding relevance"},
+                    "feedback": {"type": "string", "description": "feedback regarding relevance according to the prompt"},
                     "score": {"type": "integer", "description": "score out of 100"}
                 }
             },
             "achievements": {
                 "type": "object",
                 "properties": {
-                    "feedback": {"type": "string", "description": "feedback regarding achievements"},
+                    "feedback": {"type": "string", "description": "feedback regarding achievements according to the prompt"},
                     "score": {"type": "integer", "description": "score out of 100"}
                 }
             },
             "keywords": {
                 "type": "object",
                 "properties": {
-                    "feedback": {"type": "string", "description": "feedback regarding keywords"},
+                    "feedback": {"type": "string", "description": "feedback regarding keywords according to the prompt"},
                     "score": {"type": "integer", "description": "score out of 100"}
                 }
             },
         }
     }}
 
-    DEFAULT_SCORE = 75
     CATEGORIES_TITLES = ['readability:',
                          'Relevance:', 'Achievements:', 'Keywords:']
 
     def __init__(self):
         self._edited_lines: List[Dict[str, str]] = []
-        # self._score: Dict[str, int] = {}
         self._clarity = Dict[str, int | str]
         self._relevance = Dict[str, int | str]
         self._achievements = Dict[str, int | str]
@@ -118,15 +113,8 @@ class Booster:
         api_res = self._get_rephrase_lines_response(lines)
         self.add_tokens(api_res)
         content = api_res.get_response_content()
-        # sentences_list = [s.strip() for s in content.split('- ')[1:]]
-        # self.add_lines_to_edited_lines(lines, sentences_list)
         self._edited_lines = json.loads(content)["lines"]
         return self._edited_lines
-
-    def add_lines_to_edited_lines(self, resume_lines: List[ResumeLine], lines: List[str]) -> None:
-        for line, resume_line in zip(lines, resume_lines):
-            edited_line = {"old_line": resume_line.text, "new_line": line}
-            self._edited_lines.append(edited_line)
 
     def _get_feedback_resume_response(self, resume_text: str) -> GptApiResponse:
         messages = [self._gpt_caller.create_message(
@@ -151,26 +139,6 @@ class Booster:
         self._gpt_caller.add_tokens(api_res.usage.total_tokens)
         return self
 
-    def _check_if_title(self, words: List[str]):
-        for category in self.CATEGORIES_TITLES:
-            if category in words:
-                return True
-
-        return False
-
-    def extract_score(self, text: str) -> None:
-        result = {}
-        for line in text.split('\n'):
-            words = line.split(" ")
-            if self._check_if_title(words):
-                for i, word in enumerate(words):
-                    if "/" in word:
-                        result[words[0].rstrip(':').lower()] = int(
-                            word.split('/')[0])
-                        break
-
-        self._score = result
-
     def extract_feedback(self, res_dict: dict) -> None:
         self._clarity = res_dict["clarity"]
         self._relevance = res_dict["relevance"]
@@ -179,8 +147,6 @@ class Booster:
         self._summary = res_dict["summary"]
 
     def make_json(self) -> str:
-        # edited_lines = [{"text": line.text, "start": (line.startX, line.startY), "end": (
-        #     line.endX, line.endY)} for line in self._edited_lines]
         booster_dict = {"edited_lines": self._edited_lines,
                         "clarity": self._clarity,
                         "relevance": self._relevance,

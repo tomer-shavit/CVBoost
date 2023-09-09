@@ -22,8 +22,6 @@ def boost_resume_to_json(pdf_bytes: bytes) -> Tuple[bool, int, str]:
         with ThreadPoolExecutor() as executor:
             futures = [executor.submit(booster.feedback_resume, parser.resume_text),
                        executor.submit(booster.rephrase_lines, lines_to_rephrase)]
-            # futures = [executor.submit(
-            #     booster.rephrase_lines, lines_to_rephrase)]
 
             for future in as_completed(futures):
                 # Wait for all the API calls to complete
