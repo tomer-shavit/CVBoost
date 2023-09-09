@@ -1,6 +1,4 @@
 from typing import List, Dict
-import logging
-import re
 from .resume_line import ResumeLine
 from .gpt_api_caller import GptApiCaller
 import tiktoken
@@ -9,11 +7,15 @@ from .gpt_api_response import GptApiResponse
 
 
 class Booster:
-    TEMP = 0.3
+    TEMP = 0.2
     BULLET_POINT = '~'
     SYSTEM_PROMPT = "You're an expert career advisor. You've been helping improve people's resumes for 20 years."
-    REPHRASE_PROMPT = f"Rephrase the following resume sentences in a concise and " \
+    REPHRASE_PROMPT = f"Rephrase the following resume sentences in a concise, action oriented and " \
                       f"impressive manner to improve the overall quality of the resume:\n"
+    # REPHRASE_PROMPT = f"Rewrite the following resume sentences in a concise, action-oriented and impressive manner to improve the overall" \
+    #     f"quality of the resume. Use strong verbs, quantifiable results and specific skills to showcase my achievements and abilities." \
+    #     f"Here are the lines to improve: \n"
+
     FEEDBACK_PROMPT = "Please analyze my resume and rate each of the following criteria out of 100:\n" \
                       "Clarity and readability\nRelevance\nAchievements\nKeywords\n" \
                       "Please provide specific examples with quotes from the text to support your ratings.\n" \
@@ -21,27 +23,87 @@ class Booster:
                       "from the text to support your ratings. keep the feedback critical and respectful." \
                       "I am the applicant, talk to me directly."
 
+    REPHRASE_FUNCTION = {
+        "name": "get_feedback", "parameters": {
+            "type": "object",
+            "properties": {
+                "lines": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "old_line": {"type": "string", "description": "line from the prompt"},
+                            "new_line": {"type": "string", "description": "The improved line"}
+                        },
+                        "required": ["old_line", "new_line"]
+                    }
+                },
+                "number_of_lines": {"type": "integer", "description": "The number of lines"}
+            },
+            "required": ["lines"]
+        }
+
+    }
+
+    FEEDBACK_FUNCTION = {"name": "get_feedback", "parameters": {
+        "type": "object",
+        "properties": {
+            "summary": {
+                "type": "string",
+                "description": "general feedback about the resume"
+            },
+            "clarity": {
+                "type": "object",
+                "properties": {
+                    "feedback": {"type": "string", "description": "feedback regarding clarity"},
+                    "score": {"type": "integer", "description": "score out of 100"}
+                }
+            },
+            "relevance": {
+                "type": "object",
+                "properties": {
+                    "feedback": {"type": "string", "description": "feedback regarding relevance"},
+                    "score": {"type": "integer", "description": "score out of 100"}
+                }
+            },
+            "achievements": {
+                "type": "object",
+                "properties": {
+                    "feedback": {"type": "string", "description": "feedback regarding achievements"},
+                    "score": {"type": "integer", "description": "score out of 100"}
+                }
+            },
+            "keywords": {
+                "type": "object",
+                "properties": {
+                    "feedback": {"type": "string", "description": "feedback regarding keywords"},
+                    "score": {"type": "integer", "description": "score out of 100"}
+                }
+            },
+        }
+    }}
+
     DEFAULT_SCORE = 75
     CATEGORIES_TITLES = ['readability:',
                          'Relevance:', 'Achievements:', 'Keywords:']
 
     def __init__(self):
         self._edited_lines: List[Dict[str, str]] = []
-        self._score: Dict[str, int] = {}
-        self._clarity = ""
-        self._relevance = ""
-        self._achievements = ""
-        self._keywords = ""
-        self._feedback: str = ""
+        # self._score: Dict[str, int] = {}
+        self._clarity = Dict[str, int | str]
+        self._relevance = Dict[str, int | str]
+        self._achievements = Dict[str, int | str]
+        self._keywords = Dict[str, int | str]
+        self._summary: str = ""
         self._gpt_caller: GptApiCaller = GptApiCaller()
 
     def _get_max_tokens(self, text) -> float:
         encoding = tiktoken.encoding_for_model(self._gpt_caller.MODEL_TYPE)
-        return len(encoding.encode(text)) * 2
+        return len(encoding.encode(text)) * 3
 
     @staticmethod
     def _format_lines_for_prompt(lines: List[ResumeLine]) -> str:
-        return '\n'.join([f"- {line.text}" for line in lines])
+        return '\n'.join([f"line {index+1}: {line.text}\n" for index, line in enumerate(lines)])
 
     def _get_rephrase_lines_response(self, lines: List[ResumeLine]) -> GptApiResponse:
         messages = [self._gpt_caller.create_message(
@@ -50,16 +112,15 @@ class Booster:
         prompt = self.REPHRASE_PROMPT + f"{all_lines}"
         messages.append((self._gpt_caller.create_message("user", prompt)))
         max_tokens = self._get_max_tokens(all_lines)
-        return self._gpt_caller.call_api(messages, self.TEMP, max_tokens)
+        return self._gpt_caller.call_api(messages, self.TEMP, max_tokens, [self.REPHRASE_FUNCTION])
 
     def rephrase_lines(self, lines: List[ResumeLine]) -> List[ResumeLine]:
         api_res = self._get_rephrase_lines_response(lines)
-        logging.info(api_res)
         self.add_tokens(api_res)
         content = api_res.get_response_content()
-        sentences_list = [s.strip() for s in content.split('- ')[1:]]
-        self.add_lines_to_edited_lines(lines, sentences_list)
-
+        # sentences_list = [s.strip() for s in content.split('- ')[1:]]
+        # self.add_lines_to_edited_lines(lines, sentences_list)
+        self._edited_lines = json.loads(content)["lines"]
         return self._edited_lines
 
     def add_lines_to_edited_lines(self, resume_lines: List[ResumeLine], lines: List[str]) -> None:
@@ -73,19 +134,17 @@ class Booster:
         prompt = f"{self.FEEDBACK_PROMPT} {resume_text}"
         messages.append((self._gpt_caller.create_message("user", prompt)))
         max_tokens = self._get_max_tokens(resume_text)
-        return self._gpt_caller.call_api(messages, self.TEMP, max_tokens)
+        return self._gpt_caller.call_api(messages, self.TEMP, max_tokens, [self.FEEDBACK_FUNCTION])
 
     def feedback_resume(self, resume_text: str) -> any:
         api_res = self._get_feedback_resume_response(resume_text)
-        logging.info(api_res)
         return self.load_res(api_res)
 
     def load_res(self, api_res: GptApiResponse) -> any:
         self.add_tokens(api_res)
         res_text = api_res.get_response_content()
-        logging.info(f"GPT response text: {res_text}")
-        self.extract_score(res_text)
-        self.extract_feedback(res_text)
+        res_dict = json.loads(res_text)
+        self.extract_feedback(res_dict)
         return self
 
     def add_tokens(self, api_res: GptApiResponse) -> any:
@@ -112,23 +171,21 @@ class Booster:
 
         self._score = result
 
-    def extract_feedback(self, text: str) -> None:
-        paragraphs = text.split('\n\n')
-        self._clarity = paragraphs[0].split('\n')[1]
-        self._relevance = paragraphs[1].split('\n')[1]
-        self._achievements = paragraphs[2].split('\n')[1]
-        self._keywords = paragraphs[3].split('\n')[1]
-        self._feedback = paragraphs[4]
+    def extract_feedback(self, res_dict: dict) -> None:
+        self._clarity = res_dict["clarity"]
+        self._relevance = res_dict["relevance"]
+        self._achievements = res_dict["achievements"]
+        self._keywords = res_dict["keywords"]
+        self._summary = res_dict["summary"]
 
     def make_json(self) -> str:
         # edited_lines = [{"text": line.text, "start": (line.startX, line.startY), "end": (
         #     line.endX, line.endY)} for line in self._edited_lines]
         booster_dict = {"edited_lines": self._edited_lines,
-                        "score": self._score,
                         "clarity": self._clarity,
                         "relevance": self._relevance,
                         "achievements": self._achievements,
                         "keywords": self._keywords,
-                        "feedback": self._feedback,
+                        "summary": self._summary,
                         }
         return json.dumps(booster_dict)
