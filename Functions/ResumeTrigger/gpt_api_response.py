@@ -10,6 +10,9 @@ class GptApiResponse:
     def __str__(self):
         return f"id: {self._id}, usage: {self._usage}, choices: {self._choices}"
 
+    def get_response_content(self) -> str:
+        return self.choices[0]["message"]["content"]
+
     @property
     def id(self) -> str:
         return self._id

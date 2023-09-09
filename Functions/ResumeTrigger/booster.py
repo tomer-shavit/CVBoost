@@ -35,25 +35,28 @@ class Booster:
         self._feedback: str = ""
         self._gpt_caller: GptApiCaller = GptApiCaller()
 
-    # def __str__(self):
-    #     edited_lines_str = '\n'.join(
-    #         [f'original: {line["original"]}, edited: {line["edited"]}' for line in self._edited_lines])
-    #     # TODO change score print
-    #     return f"Edited lines: {edited_lines_str}\nScore: {self._score}\nFeedback: " \
-    #            f"{self._feedback}\nTokens used: {self._gpt_caller.tokens_used}"
+    def _get_max_tokens(self, text) -> float:
+        encoding = tiktoken.encoding_for_model(self._gpt_caller.MODEL_TYPE)
+        return len(encoding.encode(text)) * 2
 
-    def rephrase_lines(self, lines: List[ResumeLine]) -> List[ResumeLine]:
+    @staticmethod
+    def _format_lines_for_prompt(lines: List[ResumeLine]) -> str:
+        return '\n'.join([f"- {line.text}" for line in lines])
+
+    def _get_rephrase_lines_response(self, lines: List[ResumeLine]) -> GptApiResponse:
         messages = [self._gpt_caller.create_message(
             "system", self.SYSTEM_PROMPT)]
-        all_lines = '\n'.join([f"- {line.text}" for line in lines])
+        all_lines = self._format_lines_for_prompt(lines)
         prompt = self.REPHRASE_PROMPT + f"{all_lines}"
         messages.append((self._gpt_caller.create_message("user", prompt)))
-        encoding = tiktoken.encoding_for_model(self._gpt_caller.MODEL_TYPE)
-        max_tokens = len(encoding.encode(all_lines)) * 2
-        api_res = self._gpt_caller.call_api(messages, self.TEMP, max_tokens)
+        max_tokens = self._get_max_tokens(all_lines)
+        return self._gpt_caller.call_api(messages, self.TEMP, max_tokens)
+
+    def rephrase_lines(self, lines: List[ResumeLine]) -> List[ResumeLine]:
+        api_res = self._get_rephrase_lines_response(lines)
         logging.info(api_res)
         self.add_tokens(api_res)
-        content = api_res.choices[0]["message"]["content"]
+        content = api_res.get_response_content()
         sentences_list = [s.strip() for s in content.split('- ')[1:]]
         self.add_lines_to_edited_lines(lines, sentences_list)
 
@@ -64,20 +67,22 @@ class Booster:
             edited_line = {"old_line": resume_line.text, "new_line": line}
             self._edited_lines.append(edited_line)
 
-    def feedback_resume(self, resume_text: str) -> any:
+    def _get_feedback_resume_response(self, resume_text: str) -> GptApiResponse:
         messages = [self._gpt_caller.create_message(
             "system", self.SYSTEM_PROMPT)]
         prompt = f"{self.FEEDBACK_PROMPT} {resume_text}"
         messages.append((self._gpt_caller.create_message("user", prompt)))
-        encoding = tiktoken.encoding_for_model(self._gpt_caller.MODEL_TYPE)
-        max_tokens = len(encoding.encode(resume_text)) * 2
-        api_res = self._gpt_caller.call_api(messages, self.TEMP, max_tokens)
+        max_tokens = self._get_max_tokens(resume_text)
+        return self._gpt_caller.call_api(messages, self.TEMP, max_tokens)
+
+    def feedback_resume(self, resume_text: str) -> any:
+        api_res = self._get_feedback_resume_response(resume_text)
         logging.info(api_res)
         return self.load_res(api_res)
 
     def load_res(self, api_res: GptApiResponse) -> any:
         self.add_tokens(api_res)
-        res_text = api_res.choices[0].message.content
+        res_text = api_res.get_response_content()
         logging.info(f"GPT response text: {res_text}")
         self.extract_score(res_text)
         self.extract_feedback(res_text)
