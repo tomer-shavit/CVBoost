@@ -4,11 +4,12 @@ from .gpt_api_caller import GptApiCaller
 import tiktoken
 import json
 from .gpt_api_response import GptApiResponse
+from .db_query import DBQuery
+from .constants import *
 
 
 class Booster:
     TEMP = 0.2
-    BULLET_POINT = '~'
     SYSTEM_PROMPT = "You're an expert career advisor. You've been helping improve people's resumes for 20 years."
     REPHRASE_PROMPT = f"Rephrase the following resume sentences in a concise, action oriented and " \
                       f"impressive manner to improve the overall quality of the resume:\n"
@@ -80,10 +81,8 @@ class Booster:
         }
     }}
 
-    CATEGORIES_TITLES = ['readability:',
-                         'Relevance:', 'Achievements:', 'Keywords:']
-
-    def __init__(self):
+    def __init__(self, user_id: str, db_query:DBQuery) -> None:
+        self._user_id = user_id
         self._edited_lines: List[Dict[str, str]] = []
         self._clarity = Dict[str, int | str]
         self._relevance = Dict[str, int | str]
@@ -91,6 +90,7 @@ class Booster:
         self._keywords = Dict[str, int | str]
         self._summary: str = ""
         self._gpt_caller: GptApiCaller = GptApiCaller()
+        self._db = db_query
 
     def _get_max_tokens(self, text) -> float:
         encoding = tiktoken.encoding_for_model(self._gpt_caller.MODEL_TYPE)
@@ -126,7 +126,10 @@ class Booster:
 
     def feedback_resume(self, resume_text: str) -> any:
         api_res = self._get_feedback_resume_response(resume_text)
-        return self.load_res(api_res)
+        self.load_res(api_res)
+        self.save_boost_to_db(resume_text)
+        self.save_feedbacks_to_db()
+        return self
 
     def load_res(self, api_res: GptApiResponse) -> any:
         self.add_tokens(api_res)
@@ -155,3 +158,23 @@ class Booster:
                         "summary": self._summary,
                         }
         return json.dumps(booster_dict)
+    
+    def decrease_boost(self) -> bool:
+        return self._db.decrease_boost(self._user_id)
+
+    def save_boost_to_db(self, resume_text:str) -> bool:
+        return self._db.insert_resume_boost(self._user_id, BoostVersion.V1, resume_text)
+
+    def save_feedbacks_to_db(self) -> bool:
+        boost_id = self._db.current_boost_id
+        if boost_id == -1:
+            return False
+        status = True
+        status = status and self._db.insert_feedback(boost_id, FEEDBACK_TYPE.CLARITY, self._clarity["feedback"], self._clarity["score"], is_liked=False)
+        status = status and self._db.insert_feedback(boost_id, FEEDBACK_TYPE.RELEVANCE, self._relevance["feedback"], self._relevance["score"], is_liked=False)
+        status = status and self._db.insert_feedback(boost_id, FEEDBACK_TYPE.ACHIEVEMENTS, self._achievements["feedback"], self._achievements["score"], is_liked=False)
+        status = status and self._db.insert_feedback(boost_id, FEEDBACK_TYPE.KEYWORDS, self._keywords["feedback"], self._keywords["score"], is_liked=False)
+        if not status:
+            return False
+        return True
+

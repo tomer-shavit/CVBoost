@@ -1,5 +1,4 @@
 import logging
-import tempfile
 import azure.functions as func
 from .main import boost_resume_to_json
 from .file_check import is_pdf
@@ -7,10 +6,10 @@ from .file_check import is_pdf
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('Python HTTP trigger function processed a request.')
-
     # Get the resume file from the request
     try:
         req_body = req.files['resume']
+        user_id = req.form['userId']
         filename = req_body.filename
         if not is_pdf(filename):
             raise Exception
@@ -21,7 +20,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         return func.HttpResponse("Please upload a pdf resume file.", status_code=400)
 
     boost_passed, request_status, boosted_response = boost_resume_to_json(
-        file_content)
+        file_content, user_id)
 
     # Set CORS headers
     headers = {
