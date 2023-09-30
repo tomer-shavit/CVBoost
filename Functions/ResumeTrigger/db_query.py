@@ -52,6 +52,15 @@ class DBQuery:
         values = (user_id,)
         return bool(self.db_connector.post(query, values))
 
+    def get_resume_by_hash(self, resume_text:str) -> dict:
+        query = """
+        SELECT * FROM ResumeBoost WHERE resumeHash = %s
+        """
+        values = (self._hash_resume(resume_text),)
+        res = self.db_connector.get(query, values)
+        if not res:
+            return {}
+        return res[0]
     
     @staticmethod
     def _hash_resume(resume: str) -> str:
