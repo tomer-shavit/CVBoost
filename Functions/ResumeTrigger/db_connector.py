@@ -12,22 +12,22 @@ class DBConnector:
         DB_DATABASE = os.getenv("DB_DATABASE")
         SSL_PATH = os.getenv("SSL_PATH")
         # PROD
-        # self._db = mysql.connector.connect(
-        #     host=DB_HOST,
-        #     user=DB_USERNAME,
-        #     password=DB_PASSWORD,
-        #     database=DB_DATABASE,
-        #     ssl_verify_identity=True,
-        #     ssl_ca=SSL_PATH,
-        # )
-        # DEV 
         self._db = mysql.connector.connect(
-                user="root",
-                # password=DB_PASSWORD,
-                host="127.0.0.1",
-                port=3306,
-                database="cvboost-db"
-                )
+            host=DB_HOST,
+            user=DB_USERNAME,
+            password=DB_PASSWORD,
+            database=DB_DATABASE,
+            ssl_verify_identity=True,
+            ssl_ca=SSL_PATH,
+        )
+        # DEV 
+        # self._db = mysql.connector.connect(
+        #         user="root",
+        #         # password=DB_PASSWORD,
+        #         host="127.0.0.1",
+        #         port=3306,
+        #         database="cvboost-db"
+        #         )
     
     def __del__(self) -> None:
         self._db.close()
