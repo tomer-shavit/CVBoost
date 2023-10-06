@@ -2,10 +2,9 @@ import fitz
 import langdetect
 from .test_result import FileTestResult
 
-# # Defining a function that checks if the content is a PDF (bytes)
-# def is_pdf(content: bytes) -> bool:
-#     # Check if the content starts with the PDF file header (PDF signature)
-#     return content.startswith(b'%PDF-')
+# Defining a function that checks if the content is a PDF (bytes)
+def is_pdf(content: bytes) -> bool:
+    return content.startswith(b'%PDF-')
 
 # Defining a function that checks if the PDF has at most 2 pages
 def has_max_2_pages(content: bytes) -> bool:
@@ -28,6 +27,8 @@ def is_english(content: bytes) -> bool:
 
 # Defining a function that checks if the resume is valid
 def is_valid_resume(content: bytes) -> FileTestResult:
+    if not is_pdf(content):
+        return FileTestResult(False, FileTestResult.TYPE, "The content is not a PDF.")
     if not has_max_2_pages(content):
         return FileTestResult(False, FileTestResult.LENGTH, "The resume has more than 2 pages.")
     if not is_english(content):
