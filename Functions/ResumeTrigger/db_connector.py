@@ -17,8 +17,8 @@ class DBConnector:
             user=DB_USERNAME,
             password=DB_PASSWORD,
             database=DB_DATABASE,
-            ssl_verify_identity=True,
-            ssl_ca=SSL_PATH,
+            # ssl_verify_identity=True,
+            # ssl_ca=SSL_PATH,
         )
         # DEV 
         # self._db = mysql.connector.connect(

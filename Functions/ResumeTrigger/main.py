@@ -17,9 +17,9 @@ def can_boost_resume(user_id:str, db_query:DBQuery) -> bool:
 
 def boost_resume_to_json(pdf_bytes: bytes, user_id:str) -> Tuple[bool, int, str]:
     # TODO: change the tests to use pdf_bytes
-    # test_result: FileTestResult = is_valid_resume(path)
-    # if not test_result.is_passed():
-    #     return test_result.status, 400, test_result.error_message
+    test_result: FileTestResult = is_valid_resume(pdf_bytes)
+    if not test_result.is_passed():
+        return test_result.status, 400, test_result.error_message
 
     parser: ResumeParser = ResumeParser(pdf_bytes)
     db_connector = DBConnector()

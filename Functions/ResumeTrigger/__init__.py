@@ -1,7 +1,6 @@
 import logging
 import azure.functions as func
 from .main import boost_resume_to_json
-from .file_check import is_pdf
 
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
@@ -11,8 +10,6 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         req_body = req.files['resume']
         user_id = req.form['userId']
         filename = req_body.filename
-        if not is_pdf(filename):
-            raise Exception
         file_content = req_body.read()
         logging.info(f'Received resume file: {filename}')
     except Exception as e:
