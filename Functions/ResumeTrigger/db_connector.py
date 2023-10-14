@@ -32,7 +32,7 @@ class DBConnector:
     def __del__(self) -> None:
         self._db.close()
     
-    def post(self, query: str, values: Tuple[str, ...]) -> any:
+    def post(self, query: str, values: Tuple[str, ...]) -> int | None:
         try:
             cursor = self._db.cursor(dictionary=True)
             cursor.execute(query, values)

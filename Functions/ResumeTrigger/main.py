@@ -7,6 +7,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import logging
 from .db_connector import DBConnector
 from .db_query import DBQuery
+from .encrypter import Encrypter
 
 def can_boost_resume(user_id:str, db_query:DBQuery) -> bool:
     user = db_query.get_user(user_id)
@@ -16,18 +17,19 @@ def can_boost_resume(user_id:str, db_query:DBQuery) -> bool:
 
 
 def boost_resume_to_json(pdf_bytes: bytes, user_id:str) -> Tuple[bool, int, str]:
-    # TODO: change the tests to use pdf_bytes
     test_result: FileTestResult = is_valid_resume(pdf_bytes)
     if not test_result.is_passed():
         return test_result.status, 400, test_result.error_message
 
     parser: ResumeParser = ResumeParser(pdf_bytes)
     db_connector = DBConnector()
-    db_query = DBQuery(db_connector)
+    encrypter = Encrypter()
+    db_query = DBQuery(db_connector, encrypter)
+    
     if not can_boost_resume(user_id, db_query):
         return False, 400, "You have reached the maximum number of boosts"
     
-    booster = Booster(user_id, db_query)
+    booster = Booster(user_id, parser.resume_text ,db_query)
     lines_to_rephrase = [line for line in parser.get_sorted_lines()[
         :4]]
 
@@ -42,6 +44,7 @@ def boost_resume_to_json(pdf_bytes: bytes, user_id:str) -> Tuple[bool, int, str]
                     raise future.exception()
     except Exception as e:
         logging.info(f"An error occurred while making the API call: {e}")
+        booster.delete_boost()
         return False, 500, "Oops! something went wrong on our side, please check again later."
 
     booster.decrease_boost()

@@ -81,7 +81,7 @@ class Booster:
         }
     }}
 
-    def __init__(self, user_id: str, db_query:DBQuery) -> None:
+    def __init__(self, user_id: str, resume_text:str ,db_query:DBQuery) -> None:
         self._user_id = user_id
         self._edited_lines: List[Dict[str, str]] = []
         self._clarity = Dict[str, int | str]
@@ -89,8 +89,10 @@ class Booster:
         self._achievements = Dict[str, int | str]
         self._keywords = Dict[str, int | str]
         self._summary: str = ""
+
         self._gpt_caller: GptApiCaller = GptApiCaller()
         self._db = db_query
+        self.boost_id = self.save_boost_to_db(resume_text)
 
     def _get_max_tokens(self, text) -> float:
         encoding = tiktoken.encoding_for_model(self._gpt_caller.MODEL_TYPE)
@@ -114,6 +116,7 @@ class Booster:
         self.add_tokens(api_res)
         content = api_res.get_response_content()
         self._edited_lines = json.loads(content)["lines"]
+        self.save_lines_to_db()
         return self._edited_lines
 
     def _get_feedback_resume_response(self, resume_text: str) -> GptApiResponse:
@@ -127,7 +130,6 @@ class Booster:
     def feedback_resume(self, resume_text: str) -> any:
         api_res = self._get_feedback_resume_response(resume_text)
         self.load_res(api_res)
-        self.save_boost_to_db(resume_text)
         self.save_feedbacks_to_db()
         return self
 
@@ -161,20 +163,31 @@ class Booster:
     
     def decrease_boost(self) -> bool:
         return self._db.decrease_boost(self._user_id)
+    
+    def delete_boost(self) -> bool:
+        return self._db.delete_boost(self.boost_id)
 
     def save_boost_to_db(self, resume_text:str) -> bool:
         return self._db.insert_resume_boost(self._user_id, BoostVersion.V1, resume_text)
 
     def save_feedbacks_to_db(self) -> bool:
-        boost_id = self._db.current_boost_id
-        if boost_id == -1:
+        if self.boost_id == -1:
             return False
         status = True
-        status = status and self._db.insert_feedback(boost_id, FEEDBACK_TYPE.CLARITY, self._clarity["feedback"], self._clarity["score"], is_liked=False)
-        status = status and self._db.insert_feedback(boost_id, FEEDBACK_TYPE.RELEVANCE, self._relevance["feedback"], self._relevance["score"], is_liked=False)
-        status = status and self._db.insert_feedback(boost_id, FEEDBACK_TYPE.ACHIEVEMENTS, self._achievements["feedback"], self._achievements["score"], is_liked=False)
-        status = status and self._db.insert_feedback(boost_id, FEEDBACK_TYPE.KEYWORDS, self._keywords["feedback"], self._keywords["score"], is_liked=False)
-        if not status:
-            return False
-        return True
+        status = status and self._db.insert_feedback(self.boost_id, FEEDBACK_TYPE.CLARITY, self._clarity["feedback"], self._clarity["score"], is_liked=False)
+        status = status and self._db.insert_feedback(self.boost_id, FEEDBACK_TYPE.RELEVANCE, self._relevance["feedback"], self._relevance["score"], is_liked=False)
+        status = status and self._db.insert_feedback(self.boost_id, FEEDBACK_TYPE.ACHIEVEMENTS, self._achievements["feedback"], self._achievements["score"], is_liked=False)
+        status = status and self._db.insert_feedback(self.boost_id, FEEDBACK_TYPE.KEYWORDS, self._keywords["feedback"], self._keywords["score"], is_liked=False)
+        return status
+    
+    def save_lines_to_db(self) -> bool:
+        for line in self._edited_lines:
+            status = self._db.insert_line_feedback(boost_id=self.boost_id, 
+                                                   feedback_type=FEEDBACK_TYPE.LINE, 
+                                                   feedback_text=line["new_line"], 
+                                                   is_liked=False, 
+                                                   feedback_text_reference=line["old_line"])
+            if not status:
+                return False
+        return status
 
