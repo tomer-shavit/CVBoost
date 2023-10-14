@@ -10,12 +10,20 @@ class DBQuery:
         self.current_boost_id = -1
         self.encrypter = encrypter
         self.lock = threading.Lock()
+    
+    def encrypt_sensative_text(self,text:str) -> str:
+        compressed_text = self.compress_text(text)
+        encrypted_text = self.encrypter.encrypt(compressed_text)
+        return encrypted_text
+
+    def decrypt_sensative_text(self,encrypted_text:str) -> str:
+        compressed_text = self.encrypter.decrypt(encrypted_text)
+        decrypted_text = self.decompress_text(compressed_text)
+        return decrypted_text
 
     def insert_resume_boost(self, user_id:str, boost_version:BoostVersion, resume_text:str) -> int | None:
         with self.lock:
-            compressed_text = self._compress_text(resume_text)
-            encrypted_text = self.encrypter.encrypt(compressed_text)
-
+            encrypted_text = self.encrypt_sensative_text(resume_text)
             query = """
             INSERT INTO ResumeBoost (userId, boostVersion, resumeHash, resumeText, salt)
             VALUES (%s, %s, %s, %s, %s)
@@ -32,7 +40,7 @@ class DBQuery:
             INSERT INTO Feedback (boostId, feedbackType, feedbackText, score, isLiked)
             VALUES (%s, %s, %s, %s, %s)
             """
-            compressed_feedback = self._compress_text(feedback_text)
+            compressed_feedback = self.compress_text(feedback_text)
             values = (boost_id, int(feedback_type), compressed_feedback, score, is_liked)
             res = self.db_connector.post(query, values)
             if not res:
@@ -45,9 +53,9 @@ class DBQuery:
             INSERT INTO Feedback (boostId, feedbackType, feedbackText, feedbackTextReference, isLiked)
             VALUES (%s, %s, %s, %s, %s)
             """
-            compressed_ref = self._compress_text(feedback_text_reference)
+            compressed_ref = self.compress_text(feedback_text_reference)
             encrypted_ref = self.encrypter.encrypt(compressed_ref)
-            compressed_feedback = self._compress_text(feedback_text)
+            compressed_feedback = self.compress_text(feedback_text)
             values = (boost_id, int(feedback_type), compressed_feedback, encrypted_ref, is_liked)
             res = self.db_connector.post(query, values)
             if not res:
@@ -75,7 +83,7 @@ class DBQuery:
             values = (user_id,)
             return bool(self.db_connector.post(query, values))
 
-    def get_resume_by_hash(self, resume_text:str) -> dict:
+    def get_boost_by_hash(self, resume_text:str) -> dict:
        with self.lock: 
             query = """
             SELECT * FROM ResumeBoost WHERE resumeHash = %s
@@ -84,7 +92,7 @@ class DBQuery:
             res = self.db_connector.get(query, values)
             if not res:
                 return {}
-            return res[0]
+            return res[-1]
     
     def delete_boost(self, boost_id: str) -> bool:
        with self.lock: 
@@ -99,9 +107,24 @@ class DBQuery:
         return hashlib.sha256(resume.encode()).hexdigest()
     
     @staticmethod
-    def _compress_text(text: str) -> str:
+    def compress_text(text: str) -> str:
         return zlib.compress(text.encode()).hex()
 
     @staticmethod
-    def _decompress_text(text: str) -> str:
+    def decompress_text(text: str) -> str:
         return zlib.decompress(bytes.fromhex(text)).decode()
+
+    def set_salt(self, salt: bytes) -> None:
+        self.encrypter.set_salt(salt)
+        self.encrypter.init_cipher()
+    
+    def get_feedbacks(self, boostId: int) -> list:
+        with self.lock:
+            query = """
+            SELECT * FROM Feedback WHERE boostId = %s
+            """
+            values = (boostId,)
+            res = self.db_connector.get(query, values)
+            if not res:
+                return {}
+            return res

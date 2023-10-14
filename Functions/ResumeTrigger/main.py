@@ -33,6 +33,10 @@ def boost_resume_to_json(pdf_bytes: bytes, user_id:str) -> Tuple[bool, int, str]
     lines_to_rephrase = [line for line in parser.get_sorted_lines()[
         :4]]
 
+    if booster.is_already_boosted():
+        booster.recall_feedback()
+        return True, 200, booster.make_json()
+    
     try:
         with ThreadPoolExecutor() as executor:
             futures = [executor.submit(booster.feedback_resume, parser.resume_text),

@@ -89,6 +89,7 @@ class Booster:
         self._achievements = Dict[str, int | str]
         self._keywords = Dict[str, int | str]
         self._summary: str = ""
+        self.already_boosted = False
 
         self._gpt_caller: GptApiCaller = GptApiCaller()
         self._db = db_query
@@ -167,7 +168,11 @@ class Booster:
     def delete_boost(self) -> bool:
         return self._db.delete_boost(self.boost_id)
 
-    def save_boost_to_db(self, resume_text:str) -> bool:
+    def save_boost_to_db(self, resume_text:str) -> int:
+        maybe_boost_id =  self.check_already_boosted(resume_text)
+        if maybe_boost_id:
+            self.already_boosted = True
+            return maybe_boost_id
         return self._db.insert_resume_boost(self._user_id, BoostVersion.V1, resume_text)
 
     def save_feedbacks_to_db(self) -> bool:
@@ -178,16 +183,50 @@ class Booster:
         status = status and self._db.insert_feedback(self.boost_id, FEEDBACK_TYPE.RELEVANCE, self._relevance["feedback"], self._relevance["score"], is_liked=False)
         status = status and self._db.insert_feedback(self.boost_id, FEEDBACK_TYPE.ACHIEVEMENTS, self._achievements["feedback"], self._achievements["score"], is_liked=False)
         status = status and self._db.insert_feedback(self.boost_id, FEEDBACK_TYPE.KEYWORDS, self._keywords["feedback"], self._keywords["score"], is_liked=False)
+        status = status and self._db.insert_feedback(self.boost_id, FEEDBACK_TYPE.SUMMARY, self._summary, 0, is_liked=False)
         return status
     
     def save_lines_to_db(self) -> bool:
         for line in self._edited_lines:
             status = self._db.insert_line_feedback(boost_id=self.boost_id, 
-                                                   feedback_type=FEEDBACK_TYPE.LINE, 
+                                                   feedback_type=FEEDBACK_TYPE.REPHRASE, 
                                                    feedback_text=line["new_line"], 
                                                    is_liked=False, 
                                                    feedback_text_reference=line["old_line"])
             if not status:
                 return False
         return status
+
+    def check_already_boosted(self, resume_text:str) -> int | None:
+        boost = self._db.get_boost_by_hash(resume_text)
+        if not boost:
+            return None
+        self._db.set_salt(boost["salt"])
+        return boost["boostId"]
+    
+    def is_already_boosted(self) -> bool:
+        return self.already_boosted
+    
+    def recall_feedback(self) -> any:
+        feedbacks = self._db.get_feedbacks(self.boost_id)
+        for feedback in feedbacks:
+            if feedback['feedbackType'] == FEEDBACK_TYPE.REPHRASE:
+                self._edited_lines.append({"old_line": self._db.decrypt_sensative_text(feedback["feedbackTextReference"]), 
+                                           "new_line": self._db.decompress_text(feedback["feedbackText"])})
+            elif feedback['feedbackType'] == FEEDBACK_TYPE.CLARITY:
+                self._clarity = {"feedback": self._db.decompress_text(feedback["feedbackText"]), 
+                                 "score": feedback["score"]}
+            elif feedback['feedbackType'] == FEEDBACK_TYPE.RELEVANCE:
+                self._relevance = {"feedback": self._db.decompress_text(feedback["feedbackText"]), 
+                                   "score": feedback["score"]}
+            elif feedback['feedbackType'] == FEEDBACK_TYPE.ACHIEVEMENTS:
+                self._achievements = {"feedback": self._db.decompress_text(feedback["feedbackText"]), 
+                                      "score": feedback["score"]}
+            elif feedback['feedbackType'] == FEEDBACK_TYPE.KEYWORDS:
+                self._keywords = {"feedback": self._db.decompress_text(feedback["feedbackText"]), 
+                                  "score": feedback["score"]}
+            elif feedback['feedbackType'] == FEEDBACK_TYPE.SUMMARY:
+                self._summary = self._db.decompress_text(feedback["feedbackText"])
+
+        return self
 

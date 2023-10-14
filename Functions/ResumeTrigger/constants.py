@@ -10,4 +10,3 @@ class FEEDBACK_TYPE(IntEnum):
     ACHIEVEMENTS = 4
     KEYWORDS = 5
     SUMMARY = 6
-    LINE = 7

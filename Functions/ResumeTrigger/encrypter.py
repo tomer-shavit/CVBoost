@@ -10,24 +10,34 @@ load_dotenv()  # Load environment variables from .env file
 
 class Encrypter:
     def __init__(self):
-        seed = os.getenv("ENCRYPTION_SEED")
+        self.seed = os.getenv("ENCRYPTION_SEED")
         self.salt = os.urandom(16)
-        if not seed:
+        if not self.seed:
             raise ValueError("ENCRYPTION_SEED not found in environment variables")
+        
+        self.cipher = None
+        self.init_cipher()
 
-        # Generate a key from the seed using PBKDF2
+    def init_cipher(self):
         kdf = PBKDF2HMAC(
             algorithm=hashes.SHA256(),
             length=32,
-            salt= self.salt,  # Generate a random salt
+            salt= self.salt, 
             iterations=100000,
             backend=default_backend()
         )
-        key = urlsafe_b64encode(kdf.derive(seed.encode()))
+        key = urlsafe_b64encode(kdf.derive(self.seed.encode()))
         self.cipher = Fernet(key)
+        
 
     def encrypt(self, plain_text: str) -> str:
         return self.cipher.encrypt(plain_text.encode()).decode()
 
     def decrypt(self, encrypted_text: str) -> str:
         return self.cipher.decrypt(encrypted_text.encode()).decode()
+
+    def set_salt(self, salt: bytes) -> None:
+        self.salt = salt
+    
+    def get_salt(self) -> bytes:
+        return self.salt
