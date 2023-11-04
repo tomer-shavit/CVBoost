@@ -116,7 +116,7 @@ class Booster:
         self.add_tokens(api_res)
         content = api_res.get_response_content()
         self._edited_lines = json.loads(content)["lines"]
-        # self.save_lines_to_db()
+        self.save_lines_to_db()
         return self._edited_lines
 
     def _get_feedback_resume_response(self, resume_text: str) -> GptApiResponse:
@@ -130,7 +130,7 @@ class Booster:
     def feedback_resume(self, resume_text: str) -> any:
         api_res = self._get_feedback_resume_response(resume_text)
         self.load_res(api_res)
-        # self.save_feedbacks_to_db()
+        self.save_feedbacks_to_db()
         return self
 
     def load_res(self, api_res: GptApiResponse) -> any:
