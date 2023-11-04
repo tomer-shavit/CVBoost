@@ -33,9 +33,9 @@ def boost_resume_to_json(pdf_bytes: bytes, user_id:str) -> Tuple[bool, int, str]
     lines_to_rephrase = [line for line in parser.get_sorted_lines()[
         :4]]
 
-    if booster.is_already_boosted():
-        booster.recall_feedback()
-        return True, 200, booster.make_json()
+    # if booster.is_already_boosted():
+    #     booster.recall_feedback()
+    #     return True, 200, booster.make_json()
     
     try:
         with ThreadPoolExecutor() as executor:
@@ -48,7 +48,7 @@ def boost_resume_to_json(pdf_bytes: bytes, user_id:str) -> Tuple[bool, int, str]
                     raise future.exception()
     except Exception as e:
         logging.info(f"An error occurred while making the API call: {e}")
-        booster.delete_boost()
+        # booster.delete_boost()
         return False, 500, "Oops! something went wrong on our side, please check again later."
 
     booster.decrease_boost()

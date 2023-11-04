@@ -22,6 +22,7 @@ class GptApiCaller:
                 temperature=temperature,
                 max_tokens=max_tokens,
                 functions=functions,
+                function_call={"name": functions[0]["name"]}
             )
             return GptApiResponse(response['id'], response["usage"], response["choices"])
 

@@ -9,7 +9,7 @@ from .constants import *
 
 
 class Booster:
-    TEMP = 0.2
+    TEMP = 0.1
     SYSTEM_PROMPT = "You're an expert career advisor. You've been helping improve people's resumes for 20 years."
     REPHRASE_PROMPT = f"Rephrase the following resume sentences in a concise, action oriented and " \
                       f"impressive manner to improve the overall quality of the resume:\n"
@@ -17,8 +17,7 @@ class Booster:
     FEEDBACK_PROMPT = "Please analyze my resume and rate each of the following criteria out of 100:\n" \
                       "Clarity and readability\nRelevance\nAchievements\nKeywords\n" \
                       "Please provide specific examples with quotes from the text to support your ratings.\n" \
-                      "After analyzing my resume, please provide a feedback that includes specific examples " \
-                      "from the text to support your ratings. keep the feedback critical and respectful." \
+                      "Keep the feedback critical, respectful, and full of examples and quotes from the resume." \
                       "I am the applicant, talk to me directly."
 
     REPHRASE_FUNCTION = {
@@ -48,34 +47,34 @@ class Booster:
         "properties": {
             "summary": {
                 "type": "string",
-                "description": "general feedback about the resume according to the prompt"
+                "description": "Summarize all the feedback into 4-5 lines. I am the applicant, talk to me directly."
             },
             "clarity": {
                 "type": "object",
                 "properties": {
-                    "feedback": {"type": "string", "description": "feedback regarding clarity according to the prompt"},
-                    "score": {"type": "integer", "description": "score out of 100"}
+                    "feedback": {"type": "string", "description": "How easy is it to read the resume? Is the information presented in a logical order? Is there anything that i can do to improve it? Give examples with quotes. I am the applicant"},
+                    "score": {"type": "integer", "description": "score out of 100 based on how clear the resume is"}
                 }
             },
             "relevance": {
                 "type": "object",
                 "properties": {
-                    "feedback": {"type": "string", "description": "feedback regarding relevance according to the prompt"},
-                    "score": {"type": "integer", "description": "score out of 100"}
+                    "feedback": {"type": "string", "description": "Are the skills and experience listed on the resume relevant to the job I'm applying for? Is there any irrelevant information that should be removed? Give examples with quotes. I am the applicant"},
+                    "score": {"type": "integer", "description": "score out of 100 based on how relevant the resume is"}
                 }
             },
             "achievements": {
                 "type": "object",
                 "properties": {
-                    "feedback": {"type": "string", "description": "feedback regarding achievements according to the prompt"},
-                    "score": {"type": "integer", "description": "score out of 100"}
+                    "feedback": {"type": "string", "description": "How well have my accomplishments been highlighted? Are they quantifiable and well-described? What should i change to improve it? Give examples with quotes. I am the applicant"},
+                    "score": {"type": "integer", "description": "score out of 100 based on well my accomplishments are highlighted"}
                 }
             },
             "keywords": {
                 "type": "object",
                 "properties": {
-                    "feedback": {"type": "string", "description": "feedback regarding keywords according to the prompt"},
-                    "score": {"type": "integer", "description": "score out of 100"}
+                    "feedback": {"type": "string", "description": "Have I included industry-specific keywords that will make my resume stand out to employers and applicant tracking systems? What should i change to improve it? Give examples with quotes. I am the applicant"},
+                    "score": {"type": "integer", "description": "score out of 100 based on the amount of keywords used the resume"}
                 }
             },
         }
@@ -117,7 +116,7 @@ class Booster:
         self.add_tokens(api_res)
         content = api_res.get_response_content()
         self._edited_lines = json.loads(content)["lines"]
-        self.save_lines_to_db()
+        # self.save_lines_to_db()
         return self._edited_lines
 
     def _get_feedback_resume_response(self, resume_text: str) -> GptApiResponse:
@@ -131,7 +130,7 @@ class Booster:
     def feedback_resume(self, resume_text: str) -> any:
         api_res = self._get_feedback_resume_response(resume_text)
         self.load_res(api_res)
-        self.save_feedbacks_to_db()
+        # self.save_feedbacks_to_db()
         return self
 
     def load_res(self, api_res: GptApiResponse) -> any:
