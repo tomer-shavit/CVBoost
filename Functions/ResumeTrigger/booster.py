@@ -152,7 +152,8 @@ class Booster:
         self._summary = res_dict["summary"]
 
     def make_json(self) -> str:
-        booster_dict = {"edited_lines": self._edited_lines,
+        booster_dict = {"boost_id": self.boost_id,
+                        "edited_lines": self._edited_lines,
                         "clarity": self._clarity,
                         "relevance": self._relevance,
                         "achievements": self._achievements,
