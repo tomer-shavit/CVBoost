@@ -219,7 +219,7 @@ class Booster:
         self._relevance = res_dict["relevance"]
         self._achievements = res_dict["achievements"]
         self._keywords = res_dict["keywords"]
-        self._summary = res_dict["summary"]
+        self._summary["feedback"] = res_dict["summary"]
 
     def make_json(self) -> str:
         booster_dict = {

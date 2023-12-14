@@ -149,7 +149,7 @@ class DBQuery:
     def delete_boost(self, boost_id: int) -> int:
         with self.lock:
             query = """
-            DELETE FROM ResumeBoost WHERE id = %s
+            DELETE FROM ResumeBoost WHERE boostId = %s
             """
             values = (boost_id,)
             maybe_boost_id = self.db_connector.post(query, values)
