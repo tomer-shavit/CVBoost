@@ -94,12 +94,12 @@ class DBQuery:
                 return {}
             return res[-1]
     
-    def delete_boost(self, boost_id: str) -> bool:
+    def delete_boost(self, boost_id: int) -> bool:
        with self.lock: 
             query = """
             DELETE FROM ResumeBoost WHERE id = %s
             """
-            values = (boost_id)
+            values = (str(boost_id),)
             return bool(self.db_connector.post(query, values))  
 
     @staticmethod
@@ -123,8 +123,7 @@ class DBQuery:
             query = """
             SELECT * FROM Feedback WHERE boostId = %s
             """
-            values = (boostId,)
+            values = (str(boostId),)
             res = self.db_connector.get(query, values)
-            if not res:
-                return {}
+
             return res

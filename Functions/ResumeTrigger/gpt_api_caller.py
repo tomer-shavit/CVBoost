@@ -1,6 +1,6 @@
 import os
 import openai
-from typing import Dict, List
+from typing import Dict, List, Optional
 from .gpt_api_response import GptApiResponse
 
 
@@ -13,7 +13,7 @@ class GptApiCaller:
         self._tokens_used: int = 0
         self._model.api_key = os.getenv("GPT_API_KEY1")
 
-    def call_api(self, messages: List[Dict[str, str]], temperature: float, max_tokens: int, functions=None) -> GptApiResponse:
+    def call_api(self, messages: List[Dict[str, str]], temperature: float, max_tokens: int, functions=None) -> Optional[GptApiResponse]:
         try:
             # Call the OpenAI API
             response = openai.ChatCompletion.create(
@@ -28,6 +28,9 @@ class GptApiCaller:
 
         except Exception as e:
             print("Unexpected error: %s" % str(e))
+        
+        return None
+
 
     @staticmethod
     def create_message(role: str, content: str) -> Dict[str, str]:

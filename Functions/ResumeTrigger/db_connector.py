@@ -1,7 +1,7 @@
 import os
 import mysql.connector
 from dotenv import load_dotenv
-from typing import Tuple
+from typing import Any, Tuple, Union
 
 class DBConnector:
     def __init__(self) -> None:
@@ -32,7 +32,7 @@ class DBConnector:
     def __del__(self) -> None:
         self._db.close()
     
-    def post(self, query: str, values: Tuple[str, ...]) -> int | None:
+    def post(self, query: str, values: Tuple[Union[str, int, Any], ...]) -> int | None:
         try:
             cursor = self._db.cursor(dictionary=True)
             cursor.execute(query, values)
