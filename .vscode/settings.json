@@ -6,5 +6,6 @@
   "azureFunctions.projectRuntime": "~4",
   "debug.internalConsoleOptions": "neverOpen",
   "python.linting.mypyEnabled": true,
-  "python.linting.enabled": true
+  "python.linting.enabled": true,
+  "python.linting.banditEnabled": false
 }

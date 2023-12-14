@@ -1,5 +1,5 @@
-import fitz
-import langdetect
+import fitz  # type: ignore
+import langdetect  # type: ignore
 from .test_result import FileTestResult
 
 # Defining a function that checks if the content is a PDF (bytes)

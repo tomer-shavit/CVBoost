@@ -1,7 +1,8 @@
 import os
-import mysql.connector
-from dotenv import load_dotenv
+import mysql.connector  # type: ignore
+from dotenv import load_dotenv  # type: ignore
 from typing import Any, Tuple, Union
+
 
 class DBConnector:
     def __init__(self) -> None:
@@ -20,7 +21,7 @@ class DBConnector:
             # ssl_verify_identity=True,
             # ssl_ca=SSL_PATH,
         )
-        # DEV 
+        # DEV
         # self._db = mysql.connector.connect(
         #         user="root",
         #         # password=DB_PASSWORD,
@@ -28,10 +29,10 @@ class DBConnector:
         #         port=3306,
         #         database="cvboost-db"
         #         )
-    
+
     def __del__(self) -> None:
         self._db.close()
-    
+
     def post(self, query: str, values: Tuple[Union[str, int, Any], ...]) -> int | None:
         try:
             cursor = self._db.cursor(dictionary=True)
@@ -43,11 +44,10 @@ class DBConnector:
             return None
         finally:
             cursor.close()
-        
-        return item_id
-        
 
-    def get(self, query: str,  values: Tuple[str, ...]) -> list:
+        return item_id
+
+    def get(self, query: str, values: Tuple[str, ...]) -> list:
         try:
             cursor = self._db.cursor(dictionary=True)
             cursor.execute(query, values)
@@ -59,7 +59,7 @@ class DBConnector:
             cursor.close()
 
         return result
-    
+
     def delete(self, query: str) -> bool:
         try:
             cursor = self._db.cursor(dictionary=True)
@@ -70,5 +70,5 @@ class DBConnector:
             return False
         finally:
             cursor.close()
-        
+
         return True

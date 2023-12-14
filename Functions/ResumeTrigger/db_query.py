@@ -1,3 +1,4 @@
+from typing import Optional
 from .db_connector import DBConnector
 from .constants import *
 import hashlib
@@ -21,7 +22,7 @@ class DBQuery:
         decrypted_text = self.decompress_text(compressed_text)
         return decrypted_text
 
-    def insert_resume_boost(self, user_id:str, boost_version:BoostVersion, resume_text:str) -> int | None:
+    def insert_resume_boost(self, user_id:str, boost_version:BoostVersion, resume_text:str) -> int:
         with self.lock:
             encrypted_text = self.encrypt_sensative_text(resume_text)
             query = """
@@ -31,10 +32,15 @@ class DBQuery:
             resume_hash = self._hash_resume(resume_text)
             values = (user_id, int(boost_version), resume_hash, encrypted_text, self.encrypter.salt)
 
-            return self.db_connector.post(query, values)
+            boost_id = self.db_connector.post(query, values)
+
+            if not boost_id:
+                raise Exception("Failed to insert resume boost")
+            
+            return boost_id
 
 
-    def insert_feedback(self, boost_id:int, feedback_type:FEEDBACK_TYPE, feedback_text:str, score:int , is_liked:bool ) -> bool:
+    def insert_feedback(self, boost_id:int, feedback_type:FEEDBACK_TYPE, feedback_text:str, score:int , is_liked:bool ) -> int:
        with self.lock: 
             query = """
             INSERT INTO Feedback (boostId, feedbackType, feedbackText, score, isLiked)
@@ -42,12 +48,15 @@ class DBQuery:
             """
             compressed_feedback = self.compress_text(feedback_text)
             values = (boost_id, int(feedback_type), compressed_feedback, score, is_liked)
-            res = self.db_connector.post(query, values)
-            if not res:
-                return False
-            return True
+            feedback_id = self.db_connector.post(query, values)
+
+            if not feedback_id:
+                raise Exception("Failed to insert feedback")
+            
+            return feedback_id
+       
     
-    def insert_line_feedback(self, boost_id:int, feedback_type:FEEDBACK_TYPE, feedback_text:str, is_liked:bool, feedback_text_reference: str) -> bool:
+    def insert_line_feedback(self, boost_id:int, feedback_type:FEEDBACK_TYPE, feedback_text:str, is_liked:bool, feedback_text_reference: str) -> int:
        with self.lock: 
             query = """
             INSERT INTO Feedback (boostId, feedbackType, feedbackText, feedbackTextReference, isLiked)
@@ -57,10 +66,13 @@ class DBQuery:
             encrypted_ref = self.encrypter.encrypt(compressed_ref)
             compressed_feedback = self.compress_text(feedback_text)
             values = (boost_id, int(feedback_type), compressed_feedback, encrypted_ref, is_liked)
-            res = self.db_connector.post(query, values)
-            if not res:
-                return False
-            return True
+            
+            feedback_id = self.db_connector.post(query, values)
+
+            if not feedback_id:
+                raise Exception("Failed to insert feedback")
+            
+            return feedback_id
     
     def get_user(self, user_id: str) -> dict:
        with self.lock: 
@@ -73,7 +85,7 @@ class DBQuery:
                 return {}
             return res[0]
     
-    def decrease_boost(self, user_id:str) -> bool:
+    def decrease_boost(self, user_id:str) -> int:
        with self.lock: 
             query = """
             UPDATE User
@@ -81,8 +93,13 @@ class DBQuery:
             WHERE id = %s
             """
             values = (user_id,)
-            return bool(self.db_connector.post(query, values))
+            boost_id = self.db_connector.post(query, values)
 
+            if not boost_id:
+                raise Exception("Failed to decrease num of boosts")
+            
+            return boost_id
+       
     def get_boost_by_hash(self, resume_text:str) -> dict:
        with self.lock: 
             query = """
@@ -90,17 +107,24 @@ class DBQuery:
             """
             values = (self._hash_resume(resume_text),)
             res = self.db_connector.get(query, values)
+
             if not res:
                 return {}
+            
             return res[-1]
     
-    def delete_boost(self, boost_id: int) -> bool:
+    def delete_boost(self, boost_id: int) -> int:
        with self.lock: 
             query = """
             DELETE FROM ResumeBoost WHERE id = %s
             """
-            values = (str(boost_id),)
-            return bool(self.db_connector.post(query, values))  
+            values = (boost_id,)
+            maybe_boost_id = self.db_connector.post(query, values)
+
+            if not maybe_boost_id:
+                raise Exception("Failed to delete boost")
+            
+            return maybe_boost_id
 
     @staticmethod
     def _hash_resume(resume: str) -> str:
