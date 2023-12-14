@@ -338,7 +338,6 @@ class Booster:
         if not boost:
             return None
 
-        self._db.set_salt(boost["salt"])
         return boost["boostId"]
 
     def is_already_boosted(self) -> bool:
