@@ -351,45 +351,45 @@ class Booster:
                 self._edited_lines.append(
                     EditedLineFeedback(
                         feedbackId=feedback["feedbackId"],
-                        old_line=self._db.decrypt_sensative_text(
+                        old_line=self._db.decrypt_text(
                             feedback["feedbackTextReference"]
                         ),
-                        new_line=self._db.decompress_text(feedback["feedbackText"]),
+                        new_line=self._db.decrypt_text(feedback["feedbackText"]),
                     )
                 )
 
             elif feedback["feedbackType"] == FEEDBACK_TYPE.CLARITY:
                 self._clarity = FeedbackDict(
                     feedbackId=feedback["feedbackId"],
-                    feedback=self._db.decompress_text(feedback["feedbackText"]),
+                    feedback=self._db.decrypt_text(feedback["feedbackText"]),
                     score=feedback["score"],
                 )
 
             elif feedback["feedbackType"] == FEEDBACK_TYPE.RELEVANCE:
                 self._relevance = FeedbackDict(
                     feedbackId=feedback["feedbackId"],
-                    feedback=self._db.decompress_text(feedback["feedbackText"]),
+                    feedback=self._db.decrypt_text(feedback["feedbackText"]),
                     score=feedback["score"],
                 )
 
             elif feedback["feedbackType"] == FEEDBACK_TYPE.ACHIEVEMENTS:
                 self._achievements = FeedbackDict(
                     feedbackId=feedback["feedbackId"],
-                    feedback=self._db.decompress_text(feedback["feedbackText"]),
+                    feedback=self._db.decrypt_text(feedback["feedbackText"]),
                     score=feedback["score"],
                 )
 
             elif feedback["feedbackType"] == FEEDBACK_TYPE.KEYWORDS:
                 self._keywords = FeedbackDict(
                     feedbackId=feedback["feedbackId"],
-                    feedback=self._db.decompress_text(feedback["feedbackText"]),
+                    feedback=self._db.decrypt_text(feedback["feedbackText"]),
                     score=feedback["score"],
                 )
 
             elif feedback["feedbackType"] == FEEDBACK_TYPE.SUMMARY:
                 self._summary = FeedbackDict(
                     feedbackId=feedback["feedbackId"],
-                    feedback=self._db.decompress_text(feedback["feedbackText"]),
+                    feedback=self._db.decrypt_text(feedback["feedbackText"]),
                     score=feedback["score"],
                 )
         return self

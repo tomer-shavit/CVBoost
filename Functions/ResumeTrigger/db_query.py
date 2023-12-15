@@ -14,21 +14,19 @@ class DBQuery:
         self.encrypter = encrypter
         self.lock = threading.Lock()
 
-    def encrypt_sensative_text(self, text: str) -> str:
-        compressed_text = self.compress_text(text)
-        encrypted_text = self.encrypter.encrypt(compressed_text)
+    def encrypt_text(self, text: str) -> str:
+        encrypted_text = self.encrypter.encrypt(text)
         return encrypted_text
 
-    def decrypt_sensative_text(self, encrypted_text: str) -> str:
-        compressed_text = self.encrypter.decrypt(encrypted_text)
-        decrypted_text = self.decompress_text(compressed_text)
+    def decrypt_text(self, encrypted_text: str) -> str:
+        decrypted_text = self.encrypter.decrypt(encrypted_text)
         return decrypted_text
 
     def insert_resume_boost(
         self, user_id: str, boost_version: BoostVersion, resume_text: str
     ) -> int:
         with self.lock:
-            encrypted_text = self.encrypt_sensative_text(resume_text)
+            compressed_encrypted_text = self.encrypt_text(resume_text)
             query = """
             INSERT INTO ResumeBoost (userId, boostVersion, resumeHash, resumeText)
             VALUES (%s, %s, %s, %s)
@@ -38,7 +36,7 @@ class DBQuery:
                 user_id,
                 int(boost_version),
                 resume_hash,
-                encrypted_text,
+                compressed_encrypted_text,
             )
 
             boost_id = self.db_connector.post(query, values)
@@ -61,11 +59,11 @@ class DBQuery:
             INSERT INTO Feedback (boostId, feedbackType, feedbackText, score, isLiked)
             VALUES (%s, %s, %s, %s, %s)
             """
-            compressed_feedback = self.compress_text(feedback_text)
+            compressed_encrypted_feedback = self.encrypt_text(feedback_text)
             values = (
                 boost_id,
                 int(feedback_type),
-                compressed_feedback,
+                compressed_encrypted_feedback,
                 score,
                 is_liked,
             )
@@ -89,13 +87,13 @@ class DBQuery:
             INSERT INTO Feedback (boostId, feedbackType, feedbackText, feedbackTextReference, isLiked)
             VALUES (%s, %s, %s, %s, %s)
             """
-            compressed_ref = self.compress_text(feedback_text_reference)
-            encrypted_ref = self.encrypter.encrypt(compressed_ref)
-            compressed_feedback = self.compress_text(feedback_text)
+            encrypted_ref = self.encrypt_text(feedback_text_reference)
+            encrypted_feedback = self.encrypt_text(feedback_text)
+
             values = (
                 boost_id,
                 int(feedback_type),
-                compressed_feedback,
+                encrypted_feedback,
                 encrypted_ref,
                 is_liked,
             )
