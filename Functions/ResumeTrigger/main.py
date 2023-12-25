@@ -15,13 +15,13 @@ def boost_resume_to_json(pdf_bytes: bytes, user_id: str) -> Tuple[bool, int, str
 
     parser: ResumeParser = ResumeParser(pdf_bytes)
 
-    booster = Booster(user_id)
+    booster = Booster(user_id, parser.resume_text)
 
     try:
         with ThreadPoolExecutor() as executor:
             futures = [
-                executor.submit(booster.feedback_resume, parser.resume_text),
-                executor.submit(booster.rephrase_lines, parser.resume_text),
+                executor.submit(booster.feedback_resume),
+                executor.submit(booster.rephrase_lines),
             ]
 
             for future in as_completed(futures):  # type: ignore

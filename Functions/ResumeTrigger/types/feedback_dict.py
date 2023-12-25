@@ -1,10 +1,19 @@
-
 from typing import TypedDict
 
-class FeedbackDict(TypedDict):
-    feedbackId: int 
+from ..constants import FEEDBACK_TYPE
+
+
+class FeedbackData(TypedDict):
     feedback: str
     score: int
-    
-def default_feedback_dict() -> FeedbackDict:
-    return FeedbackDict(feedbackId=0, feedback="", score=0)
+
+
+class FeedbackDict(TypedDict):
+    feedback_type: FEEDBACK_TYPE
+    data: FeedbackData
+
+
+def default_feedback_dict(feedback_type: FEEDBACK_TYPE) -> FeedbackDict:
+    return FeedbackDict(
+        feedback_type=feedback_type, data=FeedbackData(feedback="", score=0)
+    )

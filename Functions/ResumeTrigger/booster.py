@@ -12,28 +12,29 @@ from .prompt_factory import (
     SystemType,
 )
 
-from .encrypter import Encrypter
 from .constants import *
 from .gpt_api_caller import GptApiCaller
 from .gpt_api_response import GptApiResponse
-from .resume_line import ResumeLine
 from .types.feedback_dict import FeedbackDict, default_feedback_dict
-from .types.edited_lines import EditedLineFeedback
+from .types.edited_lines import EditedLine, EditedLineFeedback
 
 
 class Booster:
     TEMP_GPT4 = 0
     TEMP_GPT3 = 0.1
 
-    def __init__(self, user_id: str) -> None:
+    def __init__(self, user_id: str, resume_text: str) -> None:
         self._user_id = user_id
         self._edited_lines: List[EditedLineFeedback] = []
-        self._clarity: FeedbackDict = default_feedback_dict()
-        self._relevance: FeedbackDict = default_feedback_dict()
-        self._achievements: FeedbackDict = default_feedback_dict()
-        self._keywords: FeedbackDict = default_feedback_dict()
-        self._summary: FeedbackDict = default_feedback_dict()
+        self._clarity: FeedbackDict = default_feedback_dict(FEEDBACK_TYPE.CLARITY)
+        self._relevance: FeedbackDict = default_feedback_dict(FEEDBACK_TYPE.RELEVANCE)
+        self._achievements: FeedbackDict = default_feedback_dict(
+            FEEDBACK_TYPE.ACHIEVEMENTS
+        )
+        self._keywords: FeedbackDict = default_feedback_dict(FEEDBACK_TYPE.KEYWORDS)
+        self._summary: FeedbackDict = default_feedback_dict(FEEDBACK_TYPE.SUMMARY)
         self.already_boosted = False
+        self.resume_text = resume_text
         self._gpt_caller: GptApiCaller = GptApiCaller()
 
         self._prompt_factory: PromptFactory = PromptFactory()
@@ -41,12 +42,6 @@ class Booster:
     def _get_max_tokens(self, text, model_type) -> float:
         encoding = tiktoken.encoding_for_model(model_type)
         return len(encoding.encode(text)) * 3
-
-    @staticmethod
-    def _format_lines_for_prompt(lines: List[ResumeLine]) -> str:
-        return "\n".join(
-            [f"line {index+1}: {line.text}\n" for index, line in enumerate(lines)]
-        )
 
     def _get_rephrase_lines_response(
         self, resume_text: str
@@ -66,15 +61,31 @@ class Booster:
             [self._prompt_factory.build_rephrase_function()],
         )
 
-    def rephrase_lines(self, resume_text: str) -> List[EditedLineFeedback]:
-        api_res = self._get_rephrase_lines_response(resume_text)
+    @staticmethod
+    def build_lines_form_response(lines_data) -> List[EditedLineFeedback]:
+        lines = []
+        for line in lines_data:
+            lines.append(
+                EditedLineFeedback(
+                    feedback_type=FEEDBACK_TYPE.REPHRASE,
+                    data=EditedLine(
+                        old_line=line["old_line"], new_line=line["new_line"]
+                    ),
+                )
+            )
+
+        return lines
+
+    def rephrase_lines(self) -> List[EditedLineFeedback]:
+        api_res = self._get_rephrase_lines_response(self.resume_text)
 
         if not api_res:
             raise Exception("Failed to get response model.")
 
         self.add_tokens(api_res)
         content = api_res.get_response_content()
-        self._edited_lines = json.loads(content)["lines"]
+        lines_data = json.loads(content)["lines"]
+        self._edited_lines = self.build_lines_form_response(lines_data)
 
         return self._edited_lines
 
@@ -100,9 +111,9 @@ class Booster:
             [self._prompt_factory.build_feedback_function()],
         )
 
-    def feedback_resume(self, resume_text: str) -> Booster:
+    def feedback_resume(self) -> Booster:
         api_res = self._get_feedback_resume_response(
-            resume_text, self._gpt_caller.GPT4, self.TEMP_GPT4
+            self.resume_text, self._gpt_caller.GPT4, self.TEMP_GPT4
         )
         self.load_res(api_res)
 
@@ -125,11 +136,11 @@ class Booster:
         return self
 
     def extract_feedback(self, res_dict: dict) -> None:
-        self._clarity = res_dict["clarity"]
-        self._relevance = res_dict["relevance"]
-        self._achievements = res_dict["achievements"]
-        self._keywords = res_dict["keywords"]
-        self._summary["feedback"] = res_dict["summary"]
+        self._clarity["data"] = res_dict["clarity"]
+        self._relevance["data"] = res_dict["relevance"]
+        self._achievements["data"] = res_dict["achievements"]
+        self._keywords["data"] = res_dict["keywords"]
+        self._summary["data"]["feedback"] = res_dict["summary"]
 
     def make_json(self) -> str:
         booster_dict = {
@@ -139,6 +150,7 @@ class Booster:
             "achievements": self._achievements,
             "keywords": self._keywords,
             "summary": self._summary,
+            "resume_text": self.resume_text,
         }
 
         return json.dumps(booster_dict)
