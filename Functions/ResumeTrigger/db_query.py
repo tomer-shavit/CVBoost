@@ -1,4 +1,6 @@
 from typing import Optional
+
+from .prompt_factory import BoostVersion
 from .db_connector import DBConnector
 from .constants import *
 import hashlib

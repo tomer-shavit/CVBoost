@@ -1,7 +1,5 @@
 from enum import IntEnum
 
-class BoostVersion(IntEnum):
-    V1 = 1
 
 class FEEDBACK_TYPE(IntEnum):
     REPHRASE = 1

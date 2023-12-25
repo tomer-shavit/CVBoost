@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 import json
-from typing import Dict, List, Optional
+from typing import List, Optional, Union
 
 import tiktoken
 
-
+from .prompt_factory import (
+    BoostVersion,
+    PromptFactory,
+    SystemType,
+)
 from .constants import *
 from .db_query import DBQuery
 from .gpt_api_caller import GptApiCaller
@@ -16,116 +20,8 @@ from .types.edited_lines import EditedLineFeedback
 
 
 class Booster:
-    TEMP = 0.1
-    SYSTEM_PROMPT = "You're an expert career advisor. You've been helping improve people's resumes for 20 years."
-    REPHRASE_PROMPT = (
-        f"Rephrase the following resume sentences in a concise, action oriented and "
-        f"impressive manner to improve the overall quality of the resume:\n"
-    )
-
-    FEEDBACK_PROMPT = (
-        "Please analyze my resume and rate each of the following criteria out of 100:\n"
-        "Clarity and readability\nRelevance\nAchievements\nKeywords\n"
-        "Please provide specific examples with quotes from the text to support your ratings.\n"
-        "Keep the feedback critical, respectful, and full of examples and quotes from the resume."
-        "I am the applicant, talk to me directly."
-    )
-
-    REPHRASE_FUNCTION = {
-        "name": "get_feedback",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "lines": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "old_line": {
-                                "type": "string",
-                                "description": "line from the prompt",
-                            },
-                            "new_line": {
-                                "type": "string",
-                                "description": "The improved line",
-                            },
-                        },
-                        "required": ["old_line", "new_line"],
-                    },
-                },
-                "number_of_lines": {
-                    "type": "integer",
-                    "description": "The number of lines",
-                },
-            },
-            "required": ["lines"],
-        },
-    }
-
-    FEEDBACK_FUNCTION = {
-        "name": "get_feedback",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "summary": {
-                    "type": "string",
-                    "description": "Summarize all the feedback into 4-5 lines. I am the applicant, talk to me directly.",
-                },
-                "clarity": {
-                    "type": "object",
-                    "properties": {
-                        "feedback": {
-                            "type": "string",
-                            "description": "How easy is it to read the resume? Is the information presented in a logical order? Is there anything that i can do to improve it? Give examples with quotes. I am the applicant",
-                        },
-                        "score": {
-                            "type": "integer",
-                            "description": "score out of 100 based on how clear the resume is",
-                        },
-                    },
-                },
-                "relevance": {
-                    "type": "object",
-                    "properties": {
-                        "feedback": {
-                            "type": "string",
-                            "description": "Are the skills and experience listed on the resume relevant to the job I'm applying for? Is there any irrelevant information that should be removed? Give examples with quotes. I am the applicant",
-                        },
-                        "score": {
-                            "type": "integer",
-                            "description": "score out of 100 based on how relevant the resume is",
-                        },
-                    },
-                },
-                "achievements": {
-                    "type": "object",
-                    "properties": {
-                        "feedback": {
-                            "type": "string",
-                            "description": "How well have my accomplishments been highlighted? Are they quantifiable and well-described? What should i change to improve it? Give examples with quotes. I am the applicant",
-                        },
-                        "score": {
-                            "type": "integer",
-                            "description": "score out of 100 based on well my accomplishments are highlighted",
-                        },
-                    },
-                },
-                "keywords": {
-                    "type": "object",
-                    "properties": {
-                        "feedback": {
-                            "type": "string",
-                            "description": "Have I included industry-specific keywords that will make my resume stand out to employers and applicant tracking systems? What should i change to improve it? Give examples with quotes. I am the applicant",
-                        },
-                        "score": {
-                            "type": "integer",
-                            "description": "score out of 100 based on the amount of keywords used the resume",
-                        },
-                    },
-                },
-            },
-        },
-    }
+    TEMP_GPT4 = 0
+    TEMP_GPT3 = 0.1
 
     def __init__(self, user_id: str, resume_text: str, db_query: DBQuery) -> None:
         self._user_id = user_id
@@ -136,13 +32,14 @@ class Booster:
         self._keywords: FeedbackDict = default_feedback_dict()
         self._summary: FeedbackDict = default_feedback_dict()
         self.already_boosted = False
-
         self._gpt_caller: GptApiCaller = GptApiCaller()
+
+        self._prompt_factory: PromptFactory = PromptFactory()
         self._db = db_query
         self.boost_id = self.save_boost_to_db(resume_text)
 
-    def _get_max_tokens(self, text) -> float:
-        encoding = tiktoken.encoding_for_model(self._gpt_caller.MODEL_TYPE)
+    def _get_max_tokens(self, text, model_type) -> float:
+        encoding = tiktoken.encoding_for_model(model_type)
         return len(encoding.encode(text)) * 3
 
     @staticmethod
@@ -154,15 +51,20 @@ class Booster:
     def _get_rephrase_lines_response(
         self, lines: List[ResumeLine]
     ) -> Optional[GptApiResponse]:
-        messages = [self._gpt_caller.create_message("system", self.SYSTEM_PROMPT)]
+        system_prompt = self._prompt_factory.build_system_prompt(SystemType.BOOST)
+        messages = [self._gpt_caller.create_message("system", system_prompt)]
         all_lines = self._format_lines_for_prompt(lines)
-        prompt = self.REPHRASE_PROMPT + f"{all_lines}"
-
+        prompt = self._prompt_factory.build_repharse_prompt() + f"{all_lines}"
+        model_type = self._gpt_caller.GPT3
         messages.append((self._gpt_caller.create_message("user", prompt)))
-        max_tokens = self._get_max_tokens(all_lines)
+        max_tokens = self._get_max_tokens(all_lines, model_type)
 
         return self._gpt_caller.call_api(
-            messages, self.TEMP, int(max_tokens), [self.REPHRASE_FUNCTION]
+            messages,
+            self.TEMP_GPT3,
+            int(max_tokens),
+            model_type,
+            [self._prompt_factory.build_rephrase_function()],
         )
 
     def rephrase_lines(self, lines: List[ResumeLine]) -> List[EditedLineFeedback]:
@@ -179,35 +81,56 @@ class Booster:
         return self._edited_lines
 
     def _get_feedback_resume_response(
-        self, resume_text: str
+        self, resume_text: str, model_type: str, temp_type: float
     ) -> Optional[GptApiResponse]:
-        messages = [self._gpt_caller.create_message("system", self.SYSTEM_PROMPT)]
-        prompt = f"{self.FEEDBACK_PROMPT} {resume_text}"
+        system_prompt = self._prompt_factory.build_system_prompt(SystemType.BOOST)
+        messages = [self._gpt_caller.create_message("system", system_prompt)]
+
+        if model_type == self._gpt_caller.GPT4:
+            prompt = f"{resume_text}"
+        else:
+            prompt = f"{self._prompt_factory.build_feedback_prompt(BoostVersion.V1)} {resume_text}"
+
+        prompt = f"{self._prompt_factory.build_feedback_prompt(BoostVersion.V1)} {resume_text}"
         messages.append((self._gpt_caller.create_message("user", prompt)))
-        max_tokens = self._get_max_tokens(resume_text)
+        max_tokens = self._get_max_tokens(resume_text, model_type)
 
         return self._gpt_caller.call_api(
-            messages, self.TEMP, int(max_tokens), [self.FEEDBACK_FUNCTION]
+            messages,
+            temp_type,
+            int(max_tokens),
+            model_type,
+            [self._prompt_factory.build_feedback_function()],
         )
 
     def feedback_resume(self, resume_text: str) -> Booster:
-        api_res = self._get_feedback_resume_response(resume_text)
+        api_res = self._get_feedback_resume_response(
+            resume_text, self._gpt_caller.GPT4, self.TEMP_GPT4
+        )
 
-        if not api_res:
-            raise Exception("Failed to get response model.")
+        isFeedbackGood = self.load_res(api_res)
+        if not isFeedbackGood:
+            api_res = self._get_feedback_resume_response(
+                resume_text, self._gpt_caller.GPT3, self.TEMP_GPT3
+            )
+            self.load_res(api_res)
 
-        self.load_res(api_res)
         self.save_feedbacks_to_db()
 
         return self
 
-    def load_res(self, api_res: GptApiResponse) -> Booster:
+    def load_res(self, api_res: Union[GptApiResponse, None]) -> bool:
+        if not api_res:
+            raise Exception("Failed to get response model.")
+
         self.add_tokens(api_res)
         res_text = api_res.get_response_content()
         res_dict = json.loads(res_text)
+        if "Please provide" in res_dict["summary"]:
+            return False
         self.extract_feedback(res_dict)
 
-        return self
+        return True
 
     def add_tokens(self, api_res: GptApiResponse) -> Booster:
         self._gpt_caller.add_tokens(api_res.usage.total_tokens)  # type: ignore[attr-defined]
