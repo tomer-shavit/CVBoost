@@ -21,7 +21,7 @@ from .types.edited_lines import EditedLine, EditedLineFeedback
 
 class Booster:
     TEMP_GPT4 = 0
-    TEMP_GPT3 = 0.1
+    TEMP_GPT4_INC = 0.075
 
     def __init__(self, user_id: str, resume_text: str) -> None:
         self._user_id = user_id
@@ -111,11 +111,17 @@ class Booster:
             [self._prompt_factory.build_feedback_function()],
         )
 
-    def feedback_resume(self) -> Booster:
-        api_res = self._get_feedback_resume_response(
-            self.resume_text, self._gpt_caller.GPT4, self.TEMP_GPT4
-        )
-        self.load_res(api_res)
+    def feedback_resume(self, tries: int) -> Booster:
+        if tries > 3:
+            return self
+        try:
+            api_res = self._get_feedback_resume_response(
+                self.resume_text, self._gpt_caller.GPT4, self.TEMP_GPT4_INC * tries
+            )
+            self.load_res(api_res)
+
+        except Exception as e:
+            self.feedback_resume(tries + 1)
 
         return self
 

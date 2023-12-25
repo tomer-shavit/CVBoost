@@ -20,7 +20,7 @@ def boost_resume_to_json(pdf_bytes: bytes, user_id: str) -> Tuple[bool, int, str
     try:
         with ThreadPoolExecutor() as executor:
             futures = [
-                executor.submit(booster.feedback_resume),
+                executor.submit(booster.feedback_resume, 0),
                 executor.submit(booster.rephrase_lines),
             ]
 
