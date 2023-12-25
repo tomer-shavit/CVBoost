@@ -29,7 +29,6 @@ class GptApiCaller:
                 temperature=temperature,
                 max_tokens=max_tokens,
                 functions=functions,
-                response_format={"type": "json_object"},
                 function_call={"name": functions[0]["name"]},
             )
             return GptApiResponse(

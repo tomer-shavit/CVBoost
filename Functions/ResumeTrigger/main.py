@@ -31,42 +31,26 @@ def boost_resume_to_json(pdf_bytes: bytes, user_id: str) -> Tuple[bool, int, str
     if not can_boost_resume(user_id, db_query):
         return False, 400, "You have reached the maximum number of boosts"
 
-    try:
-        booster = Booster(user_id, parser.resume_text, db_query)
-    except Exception as e:
-        logging.info(f"An error occurred while creating the booster: {e}")
-        return (
-            False,
-            500,
-            "Oops! something went wrong on our side, please check again later.",
-        )
-
-    lines_to_rephrase = [line for line in parser.get_sorted_lines()[:4]]
-
-    if booster.is_already_boosted():
-        booster.recall_feedback()
-        return True, 200, booster.make_json()
+    booster = Booster(user_id, db_query)
+    # lines_to_rephrase = [line for line in parser.get_sorted_lines()[:4]]
 
     try:
         with ThreadPoolExecutor() as executor:
             futures = [
                 executor.submit(booster.feedback_resume, parser.resume_text),
-                executor.submit(booster.rephrase_lines, lines_to_rephrase),
+                executor.submit(booster.rephrase_lines, parser.resume_text),
             ]
 
             for future in as_completed(futures):  # type: ignore
-                # Wait for all the API calls to complete
                 if future.exception():
                     raise future.exception()  # type: ignore
+
     except Exception as e:
         logging.info(f"An error occurred while making the API call: {e}")
-        # booster.delete_boost()
         return (
             False,
             500,
             "Oops! something went wrong on our side, please check again later.",
         )
-
-    booster.decrease_boost()
 
     return True, 200, booster.make_json()

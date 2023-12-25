@@ -17,6 +17,7 @@ class FeedbackCategory(TypedDict):
 
 
 class BoostParametersProperties(TypedDict):
+    summary: DescriptionField
     clarity: FeedbackCategory
     relevance: FeedbackCategory
     achievements: FeedbackCategory
@@ -26,6 +27,7 @@ class BoostParametersProperties(TypedDict):
 class BoostParameters(TypedDict):
     type: str
     properties: BoostParametersProperties
+    required: list[str]
 
 
 class FeedbackFunction(TypedDict):

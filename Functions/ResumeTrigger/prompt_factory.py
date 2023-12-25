@@ -20,7 +20,7 @@ class PromptFactory:
     @staticmethod
     def build_system_prompt(type: SystemType) -> str:
         if type == SystemType.BOOST:
-            return "You're an expert career advisor. You've been helping improve people's resumes for 20 years. output JSON"
+            return "You're an expert career advisor. You've been helping improve people's resumes for 20 years."
 
     @staticmethod
     def build_feedback_prompt(version: BoostVersion) -> str:
@@ -40,6 +40,10 @@ class PromptFactory:
             "parameters": {
                 "type": "object",
                 "properties": {
+                    "summary": {
+                        "type": "string",
+                        "description": "Summarize the main Pros and Cons of MY resume, with constructive feedback, in terms of:\nClarity\nReadability\nRelevance\nAchievements\nKeywords. I am the applicant, talk to me directly.",
+                    },
                     "clarity": {
                         "type": "object",
                         "properties": {
@@ -49,7 +53,7 @@ class PromptFactory:
                             },
                             "score": {
                                 "type": "integer",
-                                "description": "score out of 100 based on how clear the resume is",
+                                "description": "Realistic, not rounded, score out of 100 based on how clear the resume is",
                             },
                         },
                     },
@@ -62,7 +66,7 @@ class PromptFactory:
                             },
                             "score": {
                                 "type": "integer",
-                                "description": "score out of 100 based on how relevant the resume is",
+                                "description": "Realistic, not rounded, score out of 100 based on how relevant the resume is",
                             },
                         },
                     },
@@ -75,7 +79,7 @@ class PromptFactory:
                             },
                             "score": {
                                 "type": "integer",
-                                "description": "score out of 100 based on well my accomplishments are highlighted",
+                                "description": "Realistic, not rounded, score out of 100 based on well my accomplishments are highlighted",
                             },
                         },
                     },
@@ -88,19 +92,26 @@ class PromptFactory:
                             },
                             "score": {
                                 "type": "integer",
-                                "description": "score out of 100 based on the amount of keywords used the resume",
+                                "description": "Realistic, not rounded, score out of 100 based on the amount of keywords used the resume",
                             },
                         },
                     },
                 },
+                "required": [
+                    "summary",
+                    "clarity",
+                    "relevance",
+                    "achievements",
+                    "keywords",
+                ],
             },
         }
 
     @staticmethod
     def build_repharse_prompt() -> str:
         return (
-            f"Rephrase the following resume sentences in a concise, action oriented and "
-            f"impressive manner to improve the overall quality of the resume:\n"
+            f"Review MY resume and identify four lines needing improvement for better Clarity, Skill, Relevance, Achievements portrayal, and keyword usage."
+            f"For each line, please suggest revisions to enhance the resume's overall effectiveness in terms of Clarity, Skill, Relevance, Achievements, and Keyword usage.\nThis is my resume:\n"
         )
 
     @staticmethod
@@ -117,11 +128,11 @@ class PromptFactory:
                             "properties": {
                                 "old_line": {
                                     "type": "string",
-                                    "description": "line from the prompt",
+                                    "description": "The needed to be improved line from the resume. For better Clarity, Skill, Relevance, Achievements portrayal, and keyword usage.",
                                 },
                                 "new_line": {
                                     "type": "string",
-                                    "description": "The improved line",
+                                    "description": "The improved line you suggest. To enhance the resume's overall effectiveness in terms of Clarity, Skill, Relevance, Achievements, and Keyword usage.",
                                 },
                             },
                             "required": ["old_line", "new_line"],
@@ -129,7 +140,7 @@ class PromptFactory:
                     },
                     "number_of_lines": {
                         "type": "integer",
-                        "description": "The number of lines",
+                        "description": "The number of lines you suggested to improve.",
                     },
                 },
                 "required": ["lines"],
