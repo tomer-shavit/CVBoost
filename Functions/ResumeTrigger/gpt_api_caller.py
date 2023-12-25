@@ -22,7 +22,6 @@ class GptApiCaller:
         functions=None,
     ) -> Optional[GptApiResponse]:
         try:
-            # Call the OpenAI API
             response = openai.ChatCompletion.create(
                 model=model_type,
                 messages=messages,

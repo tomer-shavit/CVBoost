@@ -5,13 +5,15 @@ from typing import List, Optional, Union
 
 import tiktoken
 
+
 from .prompt_factory import (
     BoostVersion,
     PromptFactory,
     SystemType,
 )
+
+from .encrypter import Encrypter
 from .constants import *
-from .db_query import DBQuery
 from .gpt_api_caller import GptApiCaller
 from .gpt_api_response import GptApiResponse
 from .resume_line import ResumeLine
@@ -23,7 +25,7 @@ class Booster:
     TEMP_GPT4 = 0
     TEMP_GPT3 = 0.1
 
-    def __init__(self, user_id: str, db_query: DBQuery) -> None:
+    def __init__(self, user_id: str) -> None:
         self._user_id = user_id
         self._edited_lines: List[EditedLineFeedback] = []
         self._clarity: FeedbackDict = default_feedback_dict()
@@ -35,7 +37,6 @@ class Booster:
         self._gpt_caller: GptApiCaller = GptApiCaller()
 
         self._prompt_factory: PromptFactory = PromptFactory()
-        self._db = db_query
 
     def _get_max_tokens(self, text, model_type) -> float:
         encoding = tiktoken.encoding_for_model(model_type)
@@ -52,8 +53,6 @@ class Booster:
     ) -> Optional[GptApiResponse]:
         system_prompt = self._prompt_factory.build_system_prompt(SystemType.BOOST)
         messages = [self._gpt_caller.create_message("system", system_prompt)]
-        # all_lines = self._format_lines_for_prompt(lines)
-
         prompt = self._prompt_factory.build_repharse_prompt() + f"{resume_text}"
         model_type = self._gpt_caller.GPT4
         messages.append((self._gpt_caller.create_message("user", prompt)))
@@ -130,8 +129,7 @@ class Booster:
         self._relevance = res_dict["relevance"]
         self._achievements = res_dict["achievements"]
         self._keywords = res_dict["keywords"]
-        # self._summary["feedback"] = res_dict["summary"]
-        self._summary["feedback"] = ""
+        self._summary["feedback"] = res_dict["summary"]
 
     def make_json(self) -> str:
         booster_dict = {
