@@ -1,0 +1,53 @@
+service: cv-boost-resume-trigger
+
+frameworkVersion: "3"
+
+provider:
+  name: aws
+  runtime: python3.9
+  region: eu-west-3 # Paris region for better latency in Europe
+  memorySize: 512
+  timeout: 30
+  environment:
+    OPENAI_API_KEY: ${env:OPENAI_API_KEY}
+  apiGateway:
+    binaryMediaTypes:
+      - "multipart/form-data"
+      - "application/octet-stream"
+      - "application/pdf"
+      - "*/*"
+
+package:
+  patterns:
+    - "!.venv/**"
+    - "!.git/**"
+    - "!.vscode/**"
+    - "!.mypy_cache/**"
+    - "!__pycache__/**"
+    - "!node_modules/**"
+    - "!.idea/**"
+    - "!resumes/**"
+    - "!test.http"
+    - "!.gitignore"
+    - "!.funcignore"
+    - "!function.json"
+    - "!host.json"
+    - "!local.settings.json"
+    - "!getting_started.md"
+
+functions:
+  resumeTrigger:
+    handler: Functions/ResumeTrigger/lambda_function.lambda_handler
+    events:
+      - http:
+          path: resume/boost
+          method: post
+          cors: true
+          # Configure API Gateway to handle binary media types
+          contentHandling: CONVERT_TO_BINARY
+          request:
+            # Enable binary support for multipart/form-data
+            contentHandling: CONVERT_TO_BINARY
+    environment:
+      # Function-specific environment variables
+      LOG_LEVEL: INFO

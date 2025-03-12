@@ -23,8 +23,9 @@ class Booster:
     TEMP_GPT4 = 0
     TEMP_GPT4_INC = 0.075
 
-    def __init__(self, user_id: str, resume_text: str) -> None:
+    def __init__(self, user_id: str, resume_text: str, language: str = 'fr') -> None:
         self._user_id = user_id
+        self._language = language
         self._edited_lines: List[EditedLineFeedback] = []
         self._clarity: FeedbackDict = default_feedback_dict(FEEDBACK_TYPE.CLARITY)
         self._relevance: FeedbackDict = default_feedback_dict(FEEDBACK_TYPE.RELEVANCE)
@@ -34,10 +35,12 @@ class Booster:
         self._keywords: FeedbackDict = default_feedback_dict(FEEDBACK_TYPE.KEYWORDS)
         self._summary: FeedbackDict = default_feedback_dict(FEEDBACK_TYPE.SUMMARY)
         self.already_boosted = False
-        self.resume_text = resume_text
-        self._gpt_caller: GptApiCaller = GptApiCaller()
-
-        self._prompt_factory: PromptFactory = PromptFactory()
+        self._resume_text = resume_text
+        self._api_caller = GptApiCaller()
+        self._prompt_factory = PromptFactory(language=language)
+        self._enc = tiktoken.get_encoding("cl100k_base")
+        self._tokens_used = 0
+        self._is_processed = False
 
     def _get_max_tokens(self, text, model_type) -> float:
         encoding = tiktoken.encoding_for_model(model_type)
@@ -47,13 +50,13 @@ class Booster:
         self, resume_text: str
     ) -> Optional[GptApiResponse]:
         system_prompt = self._prompt_factory.build_system_prompt(SystemType.BOOST)
-        messages = [self._gpt_caller.create_message("system", system_prompt)]
+        messages = [self._api_caller.create_message("system", system_prompt)]
         prompt = self._prompt_factory.build_repharse_prompt() + f"{resume_text}"
-        model_type = self._gpt_caller.GPT4
-        messages.append((self._gpt_caller.create_message("user", prompt)))
+        model_type = self._api_caller.GPT4O
+        messages.append((self._api_caller.create_message("user", prompt)))
         max_tokens = self._get_max_tokens(resume_text, model_type)
 
-        return self._gpt_caller.call_api(
+        return self._api_caller.call_api(
             messages,
             self.TEMP_GPT4,
             int(max_tokens),
@@ -77,7 +80,7 @@ class Booster:
         return lines
 
     def rephrase_lines(self) -> List[EditedLineFeedback]:
-        api_res = self._get_rephrase_lines_response(self.resume_text)
+        api_res = self._get_rephrase_lines_response(self._resume_text)
 
         if not api_res:
             raise Exception("Failed to get response model.")
@@ -93,17 +96,17 @@ class Booster:
         self, resume_text: str, model_type: str, temp_type: float
     ) -> Optional[GptApiResponse]:
         system_prompt = self._prompt_factory.build_system_prompt(SystemType.BOOST)
-        messages = [self._gpt_caller.create_message("system", system_prompt)]
+        messages = [self._api_caller.create_message("system", system_prompt)]
 
-        if model_type == self._gpt_caller.GPT4:
+        if model_type == self._api_caller.GPT4O:
             prompt = f"Follow the instuctions in the get_feedback function about this resume: {resume_text}"
         else:
             prompt = f"{self._prompt_factory.build_feedback_prompt(BoostVersion.V1)} {resume_text}"
 
-        messages.append((self._gpt_caller.create_message("user", prompt)))
+        messages.append((self._api_caller.create_message("user", prompt)))
         max_tokens = self._get_max_tokens(resume_text, model_type)
 
-        return self._gpt_caller.call_api(
+        return self._api_caller.call_api(
             messages,
             temp_type,
             int(max_tokens),
@@ -116,7 +119,7 @@ class Booster:
             return self
         try:
             api_res = self._get_feedback_resume_response(
-                self.resume_text, self._gpt_caller.GPT4, self.TEMP_GPT4_INC * tries
+                self._resume_text, self._api_caller.GPT4O, self.TEMP_GPT4_INC * tries
             )
             self.load_res(api_res)
 
@@ -137,7 +140,7 @@ class Booster:
         return True
 
     def add_tokens(self, api_res: GptApiResponse) -> Booster:
-        self._gpt_caller.add_tokens(api_res.usage.total_tokens)  # type: ignore[attr-defined]
+        self._api_caller.add_tokens(api_res.usage.total_tokens)  # type: ignore[attr-defined]
 
         return self
 
@@ -156,7 +159,7 @@ class Booster:
             "achievements": self._achievements,
             "keywords": self._keywords,
             "summary": self._summary,
-            "resume_text": self.resume_text,
+            "resume_text": self._resume_text,
         }
 
         return json.dumps(booster_dict)

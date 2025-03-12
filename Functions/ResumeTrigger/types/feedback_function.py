@@ -17,7 +17,7 @@ class FeedbackCategory(TypedDict):
 
 
 class BoostParametersProperties(TypedDict):
-    summary: DescriptionField
+    general_feedback: DescriptionField
     clarity: FeedbackCategory
     relevance: FeedbackCategory
     achievements: FeedbackCategory
