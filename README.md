@@ -1,178 +1,83 @@
-# CVBoost - Resume Trigger Function
+# Resume Parser Lambda - Container-Based
 
-A serverless function that analyzes and enhances resumes using AI, with automatic language detection from content.
+This project deploys a Resume Parser as an AWS Lambda function using container-based deployment. This approach ensures that all dependencies, including those with native extensions like PyMuPDF, work correctly in the Lambda environment.
 
-## Features
+## Prerequisites
 
-- **Automatic Language Detection**: Detects if the resume is in French or English and responds accordingly
-- **Resume Enhancement**: Provides feedback and suggestions to improve the resume
-- **Strict Validation**: Enforces PDF format, page limits, and language requirements with clear error messages
-- **Multipart Form Support**: Properly handles multipart/form-data uploads
-- **Binary Content Support**: Configured to handle PDF files correctly
+- [Docker](https://www.docker.com/get-started) installed and running
+- [AWS CLI](https://aws.amazon.com/cli/) installed and configured with appropriate permissions
+- PowerShell (for Windows users)
 
-## Deployment to AWS Lambda
+## Setup
 
-### Prerequisites
+1. Make sure you have the prerequisites installed
+2. Ensure your AWS CLI is configured with credentials that have permissions to:
+   - Create and push to ECR repositories
+   - Create and update Lambda functions
+   - Assume the Lambda execution role
 
-1. Install the Serverless Framework:
+## Deployment
 
-   ```
-   npm install -g serverless
-   ```
+Run the deployment script:
 
-2. Configure AWS credentials:
+```powershell
+./deploy-lambda-container.ps1
+```
 
-   ```
-   serverless config credentials --provider aws --key YOUR_ACCESS_KEY --secret YOUR_SECRET_KEY
-   ```
+### Optional Parameters
 
-3. Install Python dependencies:
+You can customize the deployment with the following parameters:
 
-   ```
-   pip install -r requirements.txt
-   ```
+```powershell
+./deploy-lambda-container.ps1 -Region "us-west-2" -RepositoryName "my-repo" -FunctionName "MyFunction"
+```
 
-4. Set up environment variables:
-   - Create a `.env` file in the root directory with your OpenAI API key:
-     ```
-     OPENAI_API_KEY=your_openai_api_key
-     ```
+- `-Region`: AWS region (default: "us-east-1")
+- `-RepositoryName`: ECR repository name (default: "resume-parser-lambda")
+- `-FunctionName`: Lambda function name (default: "ResumeParserFunction")
 
-### Deployment
+## Lambda Configuration
 
-1. Use the deployment script:
+After deployment, you may need to:
 
-   ```
-   ./deploy.sh
-   ```
+1. Configure an API Gateway trigger if you want to invoke the function via HTTP
+2. Set up environment variables in the Lambda console
+3. Configure the Lambda function's memory and timeout in the Lambda console:
+   - Recommended memory: 512 MB or higher
+   - Recommended timeout: 30-90 seconds (for PDF processing)
 
-   Or deploy manually:
+## IAM Role
 
-   ```
-   serverless deploy
-   ```
+Your Lambda function needs an execution role with at least these permissions:
 
-2. After deployment, you'll receive an API endpoint URL that you can use to trigger the function.
+- `AWSLambdaBasicExecutionRole`: For CloudWatch Logs
+- S3 permissions if your function interacts with S3 buckets
 
-### Local Testing
+## Local Testing
 
-1. Install the Serverless Offline plugin:
+To test the container locally before deployment:
 
-   ```
-   serverless plugin install -n serverless-offline
-   ```
+```bash
+docker build -t resume-parser-lambda .
+docker run -p 9000:8080 resume-parser-lambda
+```
 
-2. Run the function locally:
+Then invoke it with:
 
-   ```
-   serverless offline
-   ```
-
-3. Test the function with a sample request:
-
-   ```
-   # The language will be automatically detected from the resume content
-   curl -X POST -F "resume=@./path/to/resume.pdf" -F "userId=test-user" http://localhost:3000/resume/boost
-
-   # You can also explicitly specify a language
-   curl -X POST -F "resume=@./path/to/resume.pdf" -F "userId=test-user" -F "language=fr" http://localhost:3000/resume/boost
-   ```
-
-## Function Structure
-
-- `lambda_function.py`: AWS Lambda handler
-- `main.py`: Core function logic
-- `booster.py`: Resume enhancement logic
-- `resume_parser.py`: PDF parsing functionality
-- `file_check.py`: File validation and language detection
-
-## API Endpoint
-
-POST `/resume/boost`
-
-### Request
-
-- Content-Type: `multipart/form-data`
-- Body:
-  - `resume`: PDF file
-  - `userId`: User identifier
-  - `language`: Language code (optional, defaults to auto-detected language from resume content)
-
-### Response
-
-- Status: 200 OK
-- Body: JSON with enhanced resume content
-- Headers:
-  - `Content-Language`: The language of the response (fr/en)
-
-### Error Responses
-
-- Status: 400 Bad Request
-- Body: JSON with error details
-  ```json
-  {
-    "error": "Detailed error message explaining the validation failure"
-  }
-  ```
-
-## Validation Rules
-
-The function enforces the following validation rules:
-
-1. **PDF Format**: The uploaded file must be a valid PDF
-2. **Page Limit**: The resume must not exceed 2 pages
-3. **Text Content**: The PDF must contain extractable text
-4. **Language Validation**: If a specific language is requested, the content must match that language
-
-## Automatic Language Detection
-
-The function automatically detects the language of the resume content:
-
-1. If the content is in French, the function will respond in French
-2. For all other languages, the function will respond in English
-
-You can override this by explicitly setting the 'language' parameter in your request.
-
-## Error Messages
-
-All error messages are in English regardless of the detected or specified language. Error messages are specific and descriptive to help troubleshoot issues.
+```bash
+curl -XPOST "http://localhost:9000/2015-03-31/functions/function/invocations" -d '{}'
+```
 
 ## Troubleshooting
 
-If you encounter issues:
+- **Build errors**: Check Docker logs and ensure all dependencies are available
+- **Runtime errors**: Check CloudWatch logs for the Lambda function
+- **Permission errors**: Verify IAM roles have the necessary permissions
+- **Memory/timeout issues**: Increase Lambda memory allocation and timeout
 
-1. Check that your PDF is valid and has at most 2 pages
-2. Ensure your OpenAI API key is correctly set in the .env file
-3. Verify that the multipart/form-data request is properly formatted
-4. Check the CloudWatch logs for detailed error information
+## Benefits of Container-Based Approach
 
-## Testing
-
-The application includes comprehensive test coverage for all components:
-
-### Test Files
-
-- `test_validation.py`: Tests for PDF validation functionality
-- `test_lambda_handler.py`: Tests for the AWS Lambda handler
-- `test_main.py`: Tests for the core processing logic
-- `test_file_check.py`: Tests for file validation and language detection
-
-### Running Tests
-
-To run all tests:
-
-```
-cd Functions/ResumeTrigger
-python run_tests.py
-```
-
-To run individual test files:
-
-```
-python -m unittest ResumeTrigger.test_validation
-python -m unittest ResumeTrigger.test_lambda_handler
-python -m unittest ResumeTrigger.test_main
-python -m unittest ResumeTrigger.test_file_check
-```
-
-The tests use mocking to simulate PDF processing and API interactions, ensuring that all validation logic and error handling are properly tested.
+- Native extensions work correctly without complex packaging
+- Consistent environment between development and production
+- No need for complex fallback implementations
+- Easier dependency management

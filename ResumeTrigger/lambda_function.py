@@ -3,8 +3,102 @@ import logging
 import base64
 import os
 import traceback
-from .main import boost_resume_to_json
-from .file_check import PDFValidationError
+from main import boost_resume_to_json
+from file_check import PDFValidationError
+
+def parse_multipart_body(body_bytes, boundary):
+    """
+    Parse multipart/form-data body into parts
+    Returns a list of tuples (name, content, filename)
+    """
+    parts = []
+    # Split by boundary
+    raw_parts = body_bytes.split(f'--{boundary}'.encode('utf-8'))
+    
+    # Process each part
+    for part in raw_parts:
+        if b'Content-Disposition: form-data;' in part:
+            # Extract name
+            name_match = part.split(b'name="')[1].split(b'"')[0] if b'name="' in part else None
+            
+            # Extract filename if present
+            filename = None
+            if b'filename="' in part:
+                filename = part.split(b'filename="')[1].split(b'"')[0]
+                
+            # Extract content
+            content_start = part.find(b'\r\n\r\n') + 4 if b'\r\n\r\n' in part else 0
+            content = part[content_start:].strip() if content_start > 0 else None
+            
+            if name_match and content:
+                parts.append((name_match.decode('utf-8'), content, filename))
+                
+    return parts
+
+def parse_multipart_data(event):
+    """
+    Parse multipart/form-data from API Gateway event
+    Returns file_content, user_id, and explicit_language
+    """
+    try:
+        # Try to parse as JSON first
+        if event.get('isBase64Encoded', False):
+            body_str = base64.b64decode(event['body']).decode('utf-8')
+            body = json.loads(body_str)
+        else:
+            body = json.loads(event['body']) if isinstance(event['body'], str) else event['body']
+        
+        # Extract file content and user ID
+        file_content = base64.b64decode(body['resume'])
+        user_id = body['userId']
+        explicit_language = body.get('language')
+        return file_content, user_id, explicit_language
+        
+    except (json.JSONDecodeError, KeyError, TypeError) as e:
+        logging.warning(f"JSON parsing failed: {str(e)}. Trying multipart/form-data.")
+        
+        # If JSON parsing fails, try to handle as multipart/form-data
+        try:
+            # This is a simplified approach - in production, use a proper multipart parser
+            if event.get('isBase64Encoded', False):
+                body_bytes = base64.b64decode(event['body'])
+            else:
+                body_bytes = event['body'].encode('utf-8') if isinstance(event['body'], str) else event['body']
+            
+            # Extract boundary from content-type header
+            content_type = event.get('headers', {}).get('content-type', '')
+            if not content_type.startswith('multipart/form-data'):
+                raise ValueError(f"Expected multipart/form-data content type, got: {content_type}")
+            
+            boundary = content_type.split('boundary=')[1].strip()
+            
+            # Parse multipart form data
+            parts = parse_multipart_body(body_bytes, boundary)
+            
+            file_content = None
+            user_id = 'unknown'
+            explicit_language = None
+            
+            for name, content, filename in parts:
+                if name == 'resume':
+                    file_content = content
+                elif name == 'userId':
+                    user_id = content.decode('utf-8')
+                elif name == 'language':
+                    explicit_language = content.decode('utf-8')
+            
+            if not file_content:
+                raise ValueError("No resume file found in the request")
+                
+            return file_content, user_id, explicit_language
+            
+        except Exception as e:
+            logging.error(f"Failed to parse multipart/form-data: {str(e)}")
+            raise
+    
+    except Exception as e:
+        logging.error(f"Failed to parse request: {str(e)}")
+        raise
 
 def lambda_handler(event, context):
     """
