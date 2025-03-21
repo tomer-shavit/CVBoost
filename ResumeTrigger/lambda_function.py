@@ -1,10 +1,9 @@
 import json
 import logging
 import base64
-import os
 import traceback
-from main import boost_resume_to_json
-from file_check import PDFValidationError
+from .main import boost_resume_to_json
+from .file_check import PDFValidationError
 
 def parse_multipart_body(body_bytes, boundary):
     """

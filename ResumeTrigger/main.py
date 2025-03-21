@@ -1,5 +1,4 @@
 import logging
-import langdetect  # type: ignore
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Tuple, Optional
 

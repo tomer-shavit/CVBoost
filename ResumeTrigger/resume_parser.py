@@ -4,6 +4,7 @@ import re
 import fitz  # type: ignore
 
 
+
 class ResumeParser:
     def __init__(self, pdf_bytes: bytes):
         self._pdf_bytes: bytes = pdf_bytes

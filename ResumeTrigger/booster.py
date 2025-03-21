@@ -43,7 +43,12 @@ class Booster:
         self._is_processed = False
 
     def _get_max_tokens(self, text, model_type) -> float:
-        encoding = tiktoken.encoding_for_model(model_type)
+        try:
+            encoding = tiktoken.encoding_for_model(model_type)
+        except KeyError:
+            # If the model isn't recognized (e.g., gpt-4o), fall back to cl100k_base
+            encoding = tiktoken.get_encoding("cl100k_base")
+        
         return len(encoding.encode(text)) * 3
 
     def _get_rephrase_lines_response(
@@ -140,7 +145,10 @@ class Booster:
         return True
 
     def add_tokens(self, api_res: GptApiResponse) -> Booster:
-        self._api_caller.add_tokens(api_res.usage.total_tokens)  # type: ignore[attr-defined]
+        if api_res and api_res.usage and 'total_tokens' in api_res.usage:
+            self._api_caller.add_tokens(api_res.usage['total_tokens'])
+        else:
+            print(f"Warning: Could not find total_tokens in API response usage data")
 
         return self
 
