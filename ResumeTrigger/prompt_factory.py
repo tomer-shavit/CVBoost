@@ -1,8 +1,8 @@
 from enum import IntEnum
 
-from .types.feedback_function import FeedbackFunction
+from ResumeTrigger.types.feedback_function import FeedbackFunction
 
-from .types.rephrase_functions import RephraseFunction
+from ResumeTrigger.types.rephrase_functions import RephraseFunction
 
 
 class SystemType(IntEnum):

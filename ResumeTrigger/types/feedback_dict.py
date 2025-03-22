@@ -1,6 +1,6 @@
 from typing import TypedDict
 
-from ..constants import FEEDBACK_TYPE
+from ResumeTrigger.constants import FEEDBACK_TYPE
 
 
 class FeedbackData(TypedDict):

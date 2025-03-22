@@ -1,6 +1,6 @@
 import logging
 import json
-from .main import boost_resume_to_json
+from ResumeTrigger.main import boost_resume_to_json
 
 def handle_request(event, context):
     """
@@ -15,7 +15,7 @@ def handle_request(event, context):
             if 'body' in event and event.get('isBase64Encoded', False):
                 # This would need proper multipart parsing in production
                 # Simplified for now - actual parsing is in lambda_function.py
-                from .lambda_function import parse_multipart_data
+                from ResumeTrigger.lambda_function import parse_multipart_data
                 file_content, user_id, explicit_language = parse_multipart_data(event)
             else:
                 # Direct invocation with binary content
