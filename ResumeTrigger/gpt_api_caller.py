@@ -1,7 +1,7 @@
 import os
 import openai
 from typing import Dict, List, Optional, Any
-from ResumeTrigger.gpt_api_response import GptApiResponse
+from .gpt_api_response import GptApiResponse
 
 
 class GptApiCaller:

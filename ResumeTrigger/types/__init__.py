@@ -1,1 +1,0 @@
-# ResumeTrigger/types package 

@@ -5,18 +5,15 @@ from typing import List, Optional, Union
 
 import tiktoken
 
+import re
+from .resume_line import ResumeLine
+from .prompt_factory import PromptFactory, SystemType, BoostVersion
+from .constants import FEEDBACK_TYPE
+from .internal_types.feedback_dict import FeedbackDict, default_feedback_dict
+from .internal_types.edited_lines import EditedLine, EditedLineFeedback
 
-from ResumeTrigger.prompt_factory import (
-    BoostVersion,
-    PromptFactory,
-    SystemType,
-)
-
-from ResumeTrigger.constants import *
-from ResumeTrigger.gpt_api_caller import GptApiCaller
-from ResumeTrigger.gpt_api_response import GptApiResponse
-from ResumeTrigger.types.feedback_dict import FeedbackDict, default_feedback_dict
-from ResumeTrigger.types.edited_lines import EditedLine, EditedLineFeedback
+from .gpt_api_caller import GptApiCaller
+from .gpt_api_response import GptApiResponse
 
 
 class Booster:

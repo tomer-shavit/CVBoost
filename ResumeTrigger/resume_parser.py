@@ -1,5 +1,5 @@
 from typing import List, Optional
-from ResumeTrigger.resume_line import ResumeLine
+from .resume_line import ResumeLine
 import re
 import fitz  # type: ignore
 

@@ -2,10 +2,10 @@ import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Tuple, Optional
 
-from ResumeTrigger.booster import Booster
-from ResumeTrigger.file_check import is_valid_resume, detect_language_from_content, PDFValidationError
-from ResumeTrigger.resume_parser import ResumeParser
-from ResumeTrigger.test_result import FileTestResult
+from .booster import Booster
+from .file_check import is_valid_resume, detect_language_from_content, PDFValidationError
+from .resume_parser import ResumeParser
+from .test_result import FileTestResult
 
 
 def boost_resume_to_json(pdf_bytes: bytes, user_id: str, explicit_language: Optional[str] = None) -> Tuple[bool, int, str, str]:

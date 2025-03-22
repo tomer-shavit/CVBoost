@@ -1,8 +1,7 @@
 import fitz  # type: ignore
 import langdetect  # type: ignore
-import os
 from typing import Optional
-from ResumeTrigger.test_result import FileTestResult
+from .test_result import FileTestResult
 
 class PDFValidationError(Exception):
     """Exception raised for errors in PDF validation."""
