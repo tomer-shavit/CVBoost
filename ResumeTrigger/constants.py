@@ -8,4 +8,4 @@ class FEEDBACK_TYPE(IntEnum):
     RELEVANCE = 3
     ACHIEVEMENTS = 4
     KEYWORDS = 5
-    SUMMARY = 6
+    GENERAL_FEEDBACK = 6

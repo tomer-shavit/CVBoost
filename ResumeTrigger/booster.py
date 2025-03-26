@@ -14,6 +14,7 @@ from .internal_types.edited_lines import EditedLine, EditedLineFeedback
 
 from .gpt_api_caller import GptApiCaller
 from .gpt_api_response import GptApiResponse
+from .cloudwatch_logger import get_logger
 
 
 class Booster:
@@ -22,6 +23,8 @@ class Booster:
 
     def __init__(self, user_id: str, resume_text: str, language: str = 'fr') -> None:
         self._user_id = user_id
+        # Configure logger with user ID for traceability
+        self._logger = get_logger("booster", user_id)
         self._language = language
         self._edited_lines: List[EditedLineFeedback] = []
         self._clarity: FeedbackDict = default_feedback_dict(FEEDBACK_TYPE.CLARITY)
@@ -30,7 +33,7 @@ class Booster:
             FEEDBACK_TYPE.ACHIEVEMENTS
         )
         self._keywords: FeedbackDict = default_feedback_dict(FEEDBACK_TYPE.KEYWORDS)
-        self._summary: FeedbackDict = default_feedback_dict(FEEDBACK_TYPE.SUMMARY)
+        self._general_feedback: FeedbackDict = default_feedback_dict(FEEDBACK_TYPE.GENERAL_FEEDBACK)
         self.already_boosted = False
         self._resume_text = resume_text
         self._api_caller = GptApiCaller()
@@ -58,13 +61,18 @@ class Booster:
         messages.append((self._api_caller.create_message("user", prompt)))
         max_tokens = self._get_max_tokens(resume_text, model_type)
 
-        return self._api_caller.call_api(
+        response = self._api_caller.call_api(
             messages,
             self.TEMP_GPT4,
             int(max_tokens),
             model_type,
             [self._prompt_factory.build_rephrase_function()],
         )
+        
+        if not response:
+            self._logger.error("Failed to get rephrase response from API")
+            
+        return response
 
     @staticmethod
     def build_lines_form_response(lines_data) -> List[EditedLineFeedback]:
@@ -82,15 +90,23 @@ class Booster:
         return lines
 
     def rephrase_lines(self) -> List[EditedLineFeedback]:
+        self._logger.info(f"Processing resume rephrasing")
         api_res = self._get_rephrase_lines_response(self._resume_text)
 
         if not api_res:
-            raise Exception("Failed to get response model.")
+            error_msg = "Failed to get response from model for rephrasing."
+            self._logger.error(error_msg)
+            raise Exception(error_msg)
 
         self.add_tokens(api_res)
         content = api_res.get_response_content()
-        lines_data = json.loads(content)["lines"]
-        self._edited_lines = self.build_lines_form_response(lines_data)
+        
+        try:
+            lines_data = json.loads(content)["lines"]
+            self._edited_lines = self.build_lines_form_response(lines_data)
+        except (json.JSONDecodeError, KeyError) as e:
+            self._logger.error(f"Failed to parse rephrase response: {str(e)}")
+            raise
 
         return self._edited_lines
 
@@ -108,17 +124,25 @@ class Booster:
         messages.append((self._api_caller.create_message("user", prompt)))
         max_tokens = self._get_max_tokens(resume_text, model_type)
 
-        return self._api_caller.call_api(
+        response = self._api_caller.call_api(
             messages,
             temp_type,
             int(max_tokens),
             model_type,
             [self._prompt_factory.build_feedback_function()],
         )
+        
+        if not response:
+            self._logger.error("Failed to get feedback response from API")
+            
+        return response
 
     def feedback_resume(self, tries: int) -> Booster:
         if tries > 3:
+            self._logger.warning(f"Exceeded maximum retries ({tries}) for feedback")
             return self
+            
+        self._logger.info(f"Generating resume feedback (attempt {tries+1})")
         try:
             api_res = self._get_feedback_resume_response(
                 self._resume_text, self._api_caller.GPT4O, self.TEMP_GPT4_INC * tries
@@ -126,35 +150,48 @@ class Booster:
             self.load_res(api_res)
 
         except Exception as e:
+            self._logger.error(f"Error generating feedback: {str(e)}")
             self.feedback_resume(tries + 1)
 
         return self
 
     def load_res(self, api_res: Union[GptApiResponse, None]) -> bool:
         if not api_res:
-            raise Exception("Failed to get response model.")
+            error_msg = "Failed to get response model for feedback."
+            self._logger.error(error_msg)
+            raise Exception(error_msg)
 
         self.add_tokens(api_res)
         res_text = api_res.get_response_content()
-        res_dict = json.loads(res_text)
-        self.extract_feedback(res_dict)
+        
+        try:
+            res_dict = json.loads(res_text)
+            self.extract_feedback(res_dict)
+        except json.JSONDecodeError as e:
+            self._logger.error(f"Failed to parse feedback JSON response: {str(e)}")
+            raise
 
         return True
 
     def add_tokens(self, api_res: GptApiResponse) -> Booster:
         if api_res and api_res.usage and 'total_tokens' in api_res.usage:
-            self._api_caller.add_tokens(api_res.usage['total_tokens'])
+            token_count = api_res.usage['total_tokens']
+            self._api_caller.add_tokens(token_count)
         else:
-            print(f"Warning: Could not find total_tokens in API response usage data")
+            self._logger.warning("Could not find total_tokens in API response usage data")
 
         return self
 
     def extract_feedback(self, res_dict: dict) -> None:
-        self._clarity["data"] = res_dict["clarity"]
-        self._relevance["data"] = res_dict["relevance"]
-        self._achievements["data"] = res_dict["achievements"]
-        self._keywords["data"] = res_dict["keywords"]
-        self._summary["data"]["feedback"] = res_dict["summary"]
+        try:
+            self._clarity["data"] = res_dict["clarity"]
+            self._relevance["data"] = res_dict["relevance"]
+            self._achievements["data"] = res_dict["achievements"]
+            self._keywords["data"] = res_dict["keywords"]
+            self._general_feedback["data"]["feedback"] = res_dict["general_feedback"]
+        except KeyError as e:
+            self._logger.error(f"Missing key in feedback response: {str(e)}")
+            raise
 
     def make_json(self) -> str:
         booster_dict = {
@@ -163,7 +200,7 @@ class Booster:
             "relevance": self._relevance,
             "achievements": self._achievements,
             "keywords": self._keywords,
-            "summary": self._summary,
+            "general_feedback": self._general_feedback,
             "resume_text": self._resume_text,
         }
 

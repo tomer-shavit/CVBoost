@@ -6,27 +6,31 @@ from .booster import Booster
 from .file_check import is_valid_resume, detect_language_from_content, PDFValidationError
 from .resume_parser import ResumeParser
 from .test_result import FileTestResult
+from .cloudwatch_logger import get_logger
 
+# Replace standard logger with CloudWatch logger
+logger = get_logger("main")
 
-def boost_resume_to_json(pdf_bytes: bytes, user_id: str, explicit_language: Optional[str] = None) -> Tuple[bool, int, str, str]:
+def boost_resume_to_json(pdf_bytes: bytes, user_id: str) -> Tuple[bool, int, str, str]:
+    # Use user-specific logger for better traceability
+    user_logger = get_logger("main", user_id)
+    
     try:
-        # First, detect the language from the content
+        # Detect the language from the content
         detected_language = detect_language_from_content(pdf_bytes)
-        
-        # Use explicit language if provided, otherwise use detected language
-        language = explicit_language if explicit_language else detected_language
+        user_logger.info(f"Detected language: {detected_language}")
         
         # Validate the resume
-        test_result: FileTestResult = is_valid_resume(pdf_bytes, language)
+        test_result: FileTestResult = is_valid_resume(pdf_bytes, detected_language)
         if not test_result.is_passed():
-            logging.error(f"Resume validation failed: {test_result.error_message}")
+            user_logger.error(f"Resume validation failed: {test_result.error_message}")
             return test_result.status, 400, test_result.error_message, "en"  # Error messages in English
     
+        # Parse resume and create booster
         parser: ResumeParser = ResumeParser(pdf_bytes)
+        booster = Booster(user_id, parser.resume_text, language=detected_language)
     
-        # Pass language parameter to Booster
-        booster = Booster(user_id, parser.resume_text, language=language)
-    
+        # Process resume with concurrent tasks
         with ThreadPoolExecutor() as executor:
             futures = [
                 executor.submit(booster.feedback_resume, 0),
@@ -35,18 +39,23 @@ def boost_resume_to_json(pdf_bytes: bytes, user_id: str, explicit_language: Opti
     
             for future in as_completed(futures):  # type: ignore
                 if future.exception():
-                    raise future.exception()  # type: ignore
+                    exception = future.exception()  # type: ignore
+                    user_logger.error(f"Error in concurrent processing: {str(exception)}")
+                    # Re-raise the original exception
+                    if exception:
+                        raise exception
     
-        return True, 200, booster.make_json(), language
+        user_logger.info("Resume processing completed successfully")
+        return True, 200, booster.make_json(), detected_language
         
     except PDFValidationError as e:
         # Handle validation errors
-        logging.error(f"PDF validation error: {str(e)}")
+        user_logger.error(f"PDF validation error: {str(e)}")
         return False, 400, str(e), "en"
         
     except Exception as e:
         # Handle other errors
-        logging.error(f"An error occurred while processing the resume: {e}")
+        user_logger.error(f"Error processing resume: {str(e)}", exc_info=True)
         
         # Error message always in English
         error_message = "Oops! something went wrong on our side, please check again later."

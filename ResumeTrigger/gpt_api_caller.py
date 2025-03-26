@@ -1,15 +1,25 @@
-import os
 import openai
 from typing import Dict, List, Optional, Any
 from .gpt_api_response import GptApiResponse
+import boto3
+from .cloudwatch_logger import get_logger
 
 
 class GptApiCaller:
     GPT4O = "gpt-4o"
 
     def __init__(self):
-        self._tokens_used: int = 0
-        self._client = openai.Client(api_key=os.getenv("GPT_API_KEY1"))
+            self._tokens_used: int = 0
+            self._logger = get_logger("gpt_api_caller")
+
+            try:
+                ssm = boto3.client("ssm", region_name="eu-west-3")
+                param = ssm.get_parameter(Name="GPT_API_KEY1", WithDecryption=True)
+                api_key = param["Parameter"]["Value"]
+                self._client = openai.Client(api_key=api_key)
+            except Exception as e:
+                self._logger.error(f"Error initializing OpenAI client: {str(e)}")
+                raise
 
     def call_api(
         self,
@@ -84,7 +94,7 @@ class GptApiCaller:
                 )
 
         except Exception as e:
-            print("Unexpected error: %s" % str(e))
+            self._logger.error(f"API call failed: {str(e)}")
             return None
     
     def _extract_usage(self, usage_data):
@@ -102,7 +112,7 @@ class GptApiCaller:
                 usage_dict["prompt_tokens"] = usage_data.prompt_tokens
                 usage_dict["completion_tokens"] = usage_data.completion_tokens
                 usage_dict["total_tokens"] = usage_data.total_tokens
-            except AttributeError:
+            except AttributeError as e:
                 # If we can't get all the attributes, set default values
                 if not "prompt_tokens" in usage_dict:
                     usage_dict["prompt_tokens"] = 0

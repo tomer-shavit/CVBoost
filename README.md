@@ -1,17 +1,32 @@
-deploy commands:
+# Create a unique tag based on the current timestamp
 
-$tag = [int](Get-Date -UFormat %s)
+tag=$(date +%s)
 
-echo "416403043851.dkr.ecr.eu-west-3.amazonaws.com/resume-analyzer-lambda:$tag"
+# Set ECR repo URI
 
-# Confirm repo exists (no error if it does)
+repo_uri=416403043851.dkr.ecr.eu-west-3.amazonaws.com/resume-analyzer-lambda
 
-aws ecr describe-repositories --repository-names resume-analyzer-lambda --region eu-west-3
+# Confirm ECR repo exists (no error if it already does)
 
-# Tag local image with unique tag
+aws ecr describe-repositories --repository-names resume-analyzer-lambda --region eu-west-3 || \
+aws ecr create-repository --repository-name resume-analyzer-lambda --region eu-west-3
 
-docker tag resume-analyzer-lambda:latest 416403043851.dkr.ecr.eu-west-3.amazonaws.com/resume-analyzer-lambda:$tag
+# Build the production image
 
-# Push to ECR
+docker build -f Dockerfile.prod -t resume-analyzer-lambda-prod .
 
-docker push 416403043851.dkr.ecr.eu-west-3.amazonaws.com/resume-analyzer-lambda:$tag
+# Tag the image for ECR
+
+docker tag resume-analyzer-lambda-prod:latest $repo_uri:$tag
+
+# Authenticate Docker with ECR
+
+aws ecr get-login-password --region eu-west-3 | docker login --username AWS --password-stdin $repo_uri
+
+# Push the image to ECR
+
+docker push $repo_uri:$tag
+
+# Output final image URI
+
+echo "Pushed image to: $repo_uri:$tag"
